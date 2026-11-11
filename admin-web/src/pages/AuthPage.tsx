@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 
 import { useAuth } from '../auth/AuthProvider';
+import { useBusinessAccess } from '../auth/useBusinessAccess';
 import { PasswordInput } from '../components/PasswordInput';
 import {
   parseAuthCredentials,
@@ -48,8 +49,33 @@ function FeatureIcon({ name }: { name: 'drop' | 'box' | 'people' }) {
   );
 }
 
-export function AuthPage() {
-  const { user, loading, profileLoading, isStoreOwner, isApprovedStaff, gateMessage, clearGateMessage } = useAuth();
+type Portal = 'wrs' | 'laundry' | 'owner';
+
+const PORTAL_COPY: Record<Portal, { kicker: string; title: string; tagline: string; home: string }> = {
+  wrs: {
+    kicker: 'Water refilling and ice',
+    title: 'WaterMarket WRS',
+    tagline: 'Inventory, orders, and staff in one back-office.',
+    home: '/wrs-management',
+  },
+  laundry: {
+    kicker: 'Laundry',
+    title: 'WaterMarket Laundry',
+    tagline: 'Bookings, services, and laundry sales.',
+    home: '/laundry-management',
+  },
+  owner: {
+    kicker: 'Owner',
+    title: 'WaterMarket Sales',
+    tagline: 'Water, ice, and laundry in one view.',
+    home: '/overall-sales',
+  },
+};
+
+export function AuthPage({ portal = 'wrs' }: { portal?: Portal }) {
+  const copy = PORTAL_COPY[portal];
+  const { user, loading, profileLoading, gateMessage, clearGateMessage } = useAuth();
+  const access = useBusinessAccess();
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
@@ -75,8 +101,9 @@ export function AuthPage() {
     };
   }, []);
 
-  if (!loading && !profileLoading && user && (isStoreOwner || isApprovedStaff)) {
-    return <Navigate to="/" replace />;
+  const allowed = portal === 'owner' ? access.owner : portal === 'laundry' ? access.laundry : access.wrs;
+  if (!loading && !profileLoading && !access.loading && user && allowed) {
+    return <Navigate to={copy.home} replace />;
   }
 
   async function submit(e: React.FormEvent) {
@@ -165,16 +192,16 @@ export function AuthPage() {
 
   return (
     <div className="auth-page">
-      <aside className="auth-hero" aria-label="Water Chaste branding">
+      <aside className="auth-hero" aria-label="WaterMarket branding">
         <div className="auth-hero-glow" aria-hidden />
         <div className="auth-hero-content">
           <div className="auth-hero-logo-wrap">
-            <img src="/logo.png" alt="Water Chaste" className="auth-hero-logo" />
+            <img src="/logo.png" alt="WaterMarket" className="auth-hero-logo" />
           </div>
           <div className="auth-hero-copy">
-            <p className="auth-hero-kicker">Water refilling station</p>
-            <h1 className="auth-hero-title">Water Chaste Admin</h1>
-            <p className="auth-hero-tagline">Inventory, orders, and staff in one back-office.</p>
+            <p className="auth-hero-kicker">{copy.kicker}</p>
+            <h1 className="auth-hero-title">{copy.title}</h1>
+            <p className="auth-hero-tagline">{copy.tagline}</p>
           </div>
           <ul className="auth-hero-features">
             <li>

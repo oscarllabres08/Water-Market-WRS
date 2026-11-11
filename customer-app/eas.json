@@ -7,11 +7,7 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
-      "channel": "water-chaste-customer-development",
-      "env": {
-        "EXPO_PUBLIC_SUPABASE_URL": "https://hjvwwxdyyugjchkeolyp.supabase.co",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_syjSQ1DOnVQndCcAzDLRgA_icj7QHx2"
-      },
+      "channel": "watermarket-customer-development",
       "android": {
         "buildType": "apk"
       },
@@ -21,11 +17,7 @@
     },
     "preview": {
       "distribution": "internal",
-      "channel": "water-chaste-customer-preview",
-      "env": {
-        "EXPO_PUBLIC_SUPABASE_URL": "https://hjvwwxdyyugjchkeolyp.supabase.co",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_syjSQ1DOnVQndCcAzDLRgA_icj7QHx2"
-      },
+      "channel": "watermarket-customer-preview",
       "android": {
         "buildType": "apk"
       },
@@ -35,11 +27,7 @@
     },
     "production": {
       "distribution": "store",
-      "channel": "water-chaste-customer-production",
-      "env": {
-        "EXPO_PUBLIC_SUPABASE_URL": "https://hjvwwxdyyugjchkeolyp.supabase.co",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_syjSQ1DOnVQndCcAzDLRgA_icj7QHx2"
-      },
+      "channel": "watermarket-customer-production",
       "android": {
         "buildType": "app-bundle"
       },

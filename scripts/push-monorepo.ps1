@@ -1,10 +1,9 @@
-# Push admin-web, apps, supabase, etc. WITHOUT download-site/.
-# Usage (from repo root):
-#   .\scripts\push-monorepo.ps1
-#   .\scripts\push-monorepo.ps1 "Update admin-web and mobile apps"
+# Commit the WaterMarket project. Does not push.
+# The current origin is still the previous client's repository.
+# Set a new GitHub remote yourself before running git push.
 
 param(
-  [string]$Message = "Update project"
+  [string]$Message = "Update WaterMarket"
 )
 
 $ErrorActionPreference = "Stop"
@@ -14,22 +13,22 @@ Set-Location $Root
 $branch = git rev-parse --abbrev-ref HEAD
 if ($LASTEXITCODE -ne 0) { throw "Not a git repository." }
 
-git add -A
-git reset HEAD download-site/
-
-$staged = git diff --cached --name-only
-if (-not $staged) {
-  Write-Host "No changes outside download-site/ to commit." -ForegroundColor Yellow
-  exit 0
+$remote = git remote get-url origin 2>$null
+if ($remote -match 'Water-Chaste') {
+  Write-Host "Stopped. origin still points at the Water Chaste repository:" -ForegroundColor Yellow
+  Write-Host "  $remote"
+  Write-Host "Create a WaterMarket GitHub repo and point origin at it before pushing."
+  exit 1
 }
 
-Write-Host "Staging everything except download-site/:" -ForegroundColor Cyan
-$staged | ForEach-Object { Write-Host "  $_" }
+git add -A
+$staged = git diff --cached --name-only
+if (-not $staged) {
+  Write-Host "No changes to commit." -ForegroundColor Yellow
+  exit 0
+}
 
 git commit -m $Message
 if ($LASTEXITCODE -ne 0) { throw "Commit failed." }
 
-git push origin $branch
-if ($LASTEXITCODE -ne 0) { throw "Push failed." }
-
-Write-Host "Done. download-site/ was NOT included in this push." -ForegroundColor Green
+Write-Host "Committed on $branch. Push only after origin is the WaterMarket repository." -ForegroundColor Green

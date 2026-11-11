@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
-const STORAGE_KEY = 'water-chaste-admin-theme';
+const STORAGE_KEY = 'watermarket-admin-theme';
 
 type Theme = 'light' | 'dark';
 
@@ -15,7 +15,8 @@ const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
 function readStoredTheme(): Theme {
   try {
-    return localStorage.getItem(STORAGE_KEY) === 'dark' ? 'dark' : 'light';
+    const stored = localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem('water-chaste-admin-theme');
+    return stored === 'dark' ? 'dark' : 'light';
   } catch {
     return 'light';
   }

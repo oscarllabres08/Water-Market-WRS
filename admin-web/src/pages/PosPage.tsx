@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useAuth } from '../auth/AuthProvider';
 import { CustomerNameAutocomplete } from '../components/CustomerNameAutocomplete';
-import { BoxIcon, DropIcon } from '../components/UiIcons';
+import { BoxIcon, DropIcon, IceIcon } from '../components/UiIcons';
 import { money, publicWrsAssetUrl } from '../lib/format';
 import { recordContainerLend, resolveProfileUserIdForPosName } from '../lib/containerLend';
 import { customerNameKey, loadPosCustomerNames, savePosWalkInCustomer, type PosCustomerOption } from '../lib/posCustomerNames';
@@ -16,7 +16,7 @@ type ProductRow = {
   name: string;
   price: number;
   is_available: boolean;
-  category: 'water' | 'other';
+  category: 'water' | 'other' | 'ice';
   stock_quantity: number | null;
   image_url?: string | null;
   earn_loyalty_points?: boolean;
@@ -30,18 +30,26 @@ type CartLine = {
   image_url?: string | null;
 };
 
-type PosCategory = 'all' | 'water' | 'others';
+type PosCategory = 'all' | 'water' | 'ice' | 'others';
 
 function productMatchesCategory(p: ProductRow, cat: PosCategory): boolean {
   if (cat === 'all') return true;
-  return cat === 'water' ? p.category === 'water' : p.category === 'other';
+  if (cat === 'water') return p.category === 'water';
+  if (cat === 'ice') return p.category === 'ice';
+  return p.category === 'other';
 }
 
 const POS_CATEGORIES: { id: PosCategory; label: string }[] = [
   { id: 'all', label: 'All' },
   { id: 'water', label: 'Water' },
-  { id: 'others', label: 'Others' },
+  { id: 'ice', label: 'Ice' },
 ];
+
+function categoryLabel(category: ProductRow['category']) {
+  if (category === 'ice') return 'Ice';
+  if (category === 'water') return 'Water';
+  return 'Other';
+}
 
 type PosDraft = {
   cart: CartLine[];
@@ -54,7 +62,7 @@ type PosDraft = {
 };
 
 function posDraftKey(businessId: string) {
-  return `water-chaste-pos-draft:${businessId}`;
+  return `watermarket-pos-draft:${businessId}`;
 }
 
 function readPosDraft(businessId: string): PosDraft | null {
@@ -460,6 +468,7 @@ export function PosPage() {
     <div className="pos-layout">
       <div className="pos-grid">
         <section className="pos-main card card-flat">
+          <h2 className="pos-board-title">WRS Point of Sale</h2>
           <div className="pos-toolbar">
             <div className="pos-search">
               <SearchIcon />
@@ -474,7 +483,7 @@ export function PosPage() {
                 <ScanIcon />
               </span>
             </div>
-            <div className="pos-category-tabs" role="tablist">
+            <div className="pos-category-tabs pos-category-tabs--sale" role="tablist" aria-label="Product category">
               {POS_CATEGORIES.map((c) => (
                 <button
                   key={c.id}
@@ -484,7 +493,6 @@ export function PosPage() {
                   className={`pos-category-tab${category === c.id ? ' active' : ''}`}
                   onClick={() => setCategory(c.id)}
                 >
-                  {c.id === 'water' ? <DropIcon /> : c.id === 'others' ? <BoxIcon /> : null}
                   {c.label}
                 </button>
               ))}
@@ -501,43 +509,22 @@ export function PosPage() {
               const inOrder = cart.find((line) => line.productId === p.id)?.quantity ?? 0;
               const justAdded = addedFlashId === p.id;
               return (
-                <article
-                  key={p.id}
-                  className={`pos-product-card${justAdded ? ' pos-product-card--added' : ''}`}
-                  role="button"
-                  tabIndex={0}
-                  aria-label={`Add ${p.name} to order`}
-                  onClick={() => addProduct(p)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      addProduct(p);
-                    }
-                  }}
-                >
-                  <div className="pos-product-media">
-                    {img ? <img src={img} alt="" /> : <div className="pos-product-placeholder" />}
+                <article key={p.id} className={`pos-product-card${justAdded ? ' pos-product-card--added' : ''}`}>
+                  <div className="pos-product-top">
+                    <span className={`pos-product-glyph pos-product-glyph--${p.category}`} aria-hidden>
+                      {p.category === 'ice' ? <IceIcon /> : p.category === 'water' ? <DropIcon /> : <BoxIcon />}
+                    </span>
+                    {img ? <img className="pos-product-thumb" src={img} alt="" /> : null}
+                    <span className={`pos-product-badge pos-product-badge--${p.category}`}>{categoryLabel(p.category)}</span>
                   </div>
                   <h3>{p.name}</h3>
-                  <div className="pos-product-foot">
-                    <div className="pos-product-meta">
-                      <p className="pos-product-price">{money(Number(p.price))}</p>
-                      <p className={`pos-stock${isLowStock(p.stock_quantity) ? ' pos-stock--low' : ''}`}>
-                        <CheckIcon />{' '}
-                        {tracksStock(p.category) && p.stock_quantity != null
-                          ? stockLabel(p.stock_quantity)
-                          : 'In Stock'}
-                      </p>
-                    </div>
-                    <span className="pos-add-btn" aria-hidden>
-                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                        <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                      </svg>
-                    </span>
-                  </div>
-                  {inOrder > 0 ? (
-                    <p className="pos-added-chip">{justAdded ? 'Added' : `Added · ${inOrder}`}</p>
-                  ) : null}
+                  <p className="pos-product-price">{money(Number(p.price))}</p>
+                  <p className={`pos-stock${isLowStock(p.stock_quantity) ? ' pos-stock--low' : ''}`}>
+                    {tracksStock(p.category) && p.stock_quantity != null ? stockLabel(p.stock_quantity) : 'In stock'}
+                  </p>
+                  <button type="button" className="pos-add-btn" onClick={() => addProduct(p)}>
+                    {inOrder > 0 ? `Added · ${inOrder}` : 'Add to cart'}
+                  </button>
                 </article>
               );
             })}

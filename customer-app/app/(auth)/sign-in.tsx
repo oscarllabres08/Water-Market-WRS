@@ -113,7 +113,7 @@ export default function SignInScreen() {
               source={authLogo}
               style={{ width: 280, height: 168 }}
               resizeMode="contain"
-              accessibilityLabel="Water Chaste"
+              accessibilityLabel="WaterMarket"
               accessibilityIgnoresInvertColors
             />
           </View>

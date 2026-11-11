@@ -1,0 +1,76 @@
+{
+  "expo": {
+    "name": "WaterMarket Rider",
+    "slug": "watermarket-rider",
+    "version": "1.0.1",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "watermarketrider",
+    "userInterfaceStyle": "automatic",
+    "androidStatusBar": {
+      "barStyle": "dark-content",
+      "backgroundColor": "#F3F8FC",
+      "translucent": false
+    },
+    "splash": {
+      "image": "./assets/icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FFFFFF"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.watermarket.rider",
+      "googleServicesFile": "./GoogleService-Info.plist"
+    },
+    "android": {
+      "softwareKeyboardLayoutMode": "resize",
+      "googleServicesFile": "./google-services.json",
+      "adaptiveIcon": {
+        "backgroundColor": "#FFFFFF",
+        "foregroundImage": "./assets/adaptive-icon.png"
+      },
+      "package": "com.watermarket.rider",
+      "versionCode": 2,
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.VIBRATE"
+      ]
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/icon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-notifications",
+        {
+          "sounds": [
+            "./assets/notification.wav"
+          ],
+          "defaultChannel": "wrs_alerts_v4"
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "WaterMarket Rider uses your location while delivering an order."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "updates": {
+      "enabled": false
+    },
+    "extra": {
+      "router": {}
+    }
+  }
+}

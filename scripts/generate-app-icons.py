@@ -1,4 +1,4 @@
-"""Build Water Chaste app icons and copy the business logo."""
+"""Build WaterMarket app icons and copy the business logo."""
 
 from __future__ import annotations
 
@@ -14,14 +14,13 @@ ADAPTIVE_SCALE = 0.58
 
 APP_ASSETS = [
     ROOT / "customer-app" / "assets",
-    ROOT / "seller-app" / "assets",
+    ROOT / "rider-app" / "assets",
 ]
 
 LOGO_COPIES = [
     ROOT / "customer-app" / "assets" / "logo.png",
-    ROOT / "seller-app" / "assets" / "logo.png",
+    ROOT / "rider-app" / "assets" / "logo.png",
     ROOT / "admin-web" / "public" / "logo.png",
-    ROOT / "download-site" / "logo.png",
 ]
 
 
@@ -56,8 +55,8 @@ def main() -> None:
         make_padded_icon(SOURCE, assets_dir / "favicon.png", 0.82)
         print(f"Updated icons in {assets_dir}")
 
-    make_padded_icon(SOURCE, ROOT / "seller-app" / "assets" / "images" / "icon.png", ICON_SCALE)
-    make_padded_icon(SOURCE, ROOT / "seller-app" / "assets" / "images" / "favicon.png", 0.82)
+    make_padded_icon(SOURCE, ROOT / "rider-app" / "assets" / "images" / "icon.png", ICON_SCALE)
+    make_padded_icon(SOURCE, ROOT / "rider-app" / "assets" / "images" / "favicon.png", 0.82)
 
 
 if __name__ == "__main__":

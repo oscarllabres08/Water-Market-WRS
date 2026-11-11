@@ -23,9 +23,8 @@ type ExpenseRow = {
   created_at: string;
 };
 
-export function ExpensesPage() {
+export function ExpensesPage({ businessUnit = 'wrs' }: { businessUnit?: 'wrs' | 'laundry' }) {
   const { businessId } = useAuth();
-  const businessUnit = 'wrs';
   const [rows, setRows] = useState<ExpenseRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);

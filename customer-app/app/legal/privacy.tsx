@@ -5,7 +5,7 @@ export default function PrivacyScreen() {
   return (
     <LegalDocumentScreen
       title="Privacy Policy"
-      intro="How Water Chaste collects, uses, and protects your information."
+      intro="How WaterMarket collects, uses, and protects your information."
       icon="shield-checkmark"
       sections={PRIVACY_POLICY}
     />

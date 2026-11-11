@@ -391,7 +391,7 @@ export function SalesDonutChart({
 
 export function CategoryBarChart({ totals }: { totals: Record<SalesCategoryKey, number> }) {
 
-  const keys: SalesCategoryKey[] = ['water', 'containers', 'others', 'accessories'];
+  const keys: SalesCategoryKey[] = ['water', 'ice', 'containers', 'others', 'accessories'];
 
   const max = Math.max(1, ...keys.map((k) => totals[k]));
 

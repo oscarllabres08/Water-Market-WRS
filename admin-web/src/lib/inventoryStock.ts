@@ -1,8 +1,10 @@
-/** Alert when Others stock is at or below this count (pieces). */
+/** Alert when tracked stock is at or below this count (pieces). */
 export const LOW_STOCK_THRESHOLD = 10;
 
-export function tracksStock(category: 'water' | 'other'): boolean {
-  return category === 'other';
+export type CatalogCategory = 'water' | 'other' | 'ice';
+
+export function tracksStock(category: CatalogCategory): boolean {
+  return category === 'other' || category === 'ice';
 }
 
 export function isLowStock(stockQuantity: number | null | undefined): boolean {

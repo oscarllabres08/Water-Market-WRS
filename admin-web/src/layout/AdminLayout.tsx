@@ -11,17 +11,21 @@ import { useTheme } from '../theme/ThemeProvider';
 type NavIconId =
   | 'dashboard'
   | 'pos'
+  | 'orders'
+  | 'ice'
+  | 'delivery'
   | 'inventory'
   | 'containers'
   | 'sales'
   | 'loyalty'
   | 'customers'
+  | 'riders'
   | 'expenses'
   | 'staff'
   | 'settings'
   | 'signout';
 
-const STORE_OPEN_KEY = 'water-chaste-store-open';
+const STORE_OPEN_KEY = 'watermarket-store-open';
 
 function NavIcon({ id }: { id: NavIconId }) {
   const common = { width: 18, height: 18, viewBox: '0 0 24 24', fill: 'none', 'aria-hidden': true as const };
@@ -41,6 +45,37 @@ function NavIcon({ id }: { id: NavIconId }) {
           <circle cx="9" cy="20" r="1.2" fill="currentColor" />
           <circle cx="18" cy="20" r="1.2" fill="currentColor" />
           <path d="M3 4h2l2.2 11h11.3l2-7H7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      );
+    case 'orders':
+      return (
+        <svg {...common}>
+          <path d="M7 3.5h7l4 4V20a1.5 1.5 0 01-1.5 1.5h-9.5A1.5 1.5 0 015.5 20V5A1.5 1.5 0 017 3.5z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+          <path d="M14 3.8V8h4.2M8.5 12h7M8.5 16h5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+        </svg>
+      );
+    case 'ice':
+      return (
+        <svg {...common}>
+          <path d="M12 3.2 17 6v5.2L12 14.2 7 11.2V6L12 3.2z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+          <path d="M12 14.2V21M7 11.2 3.8 17M17 11.2 20.2 17M12 7.4v4.6M9.4 9.2h5.2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+        </svg>
+      );
+    case 'delivery':
+      return (
+        <svg {...common}>
+          <path d="M3 7h11v8H3zM14 10h4l3 3v2h-7" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+          <circle cx="7" cy="17.5" r="1.6" stroke="currentColor" strokeWidth="1.8" />
+          <circle cx="17" cy="17.5" r="1.6" stroke="currentColor" strokeWidth="1.8" />
+        </svg>
+      );
+    case 'riders':
+      return (
+        <svg {...common}>
+          <circle cx="6.5" cy="17" r="2.2" stroke="currentColor" strokeWidth="1.8" />
+          <circle cx="17.5" cy="17" r="2.2" stroke="currentColor" strokeWidth="1.8" />
+          <path d="M6.5 17h4l2.2-5H16l2 3.2M8.5 8.5h3.2L14 12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+          <circle cx="15.2" cy="6.2" r="1.5" stroke="currentColor" strokeWidth="1.6" />
         </svg>
       );
     case 'inventory':
@@ -131,34 +166,41 @@ function MenuIcon({ open }: { open: boolean }) {
 }
 
 const NAV = [
-  { to: '/', label: 'Overview', end: true, icon: 'dashboard' as const },
-  { to: '/pos', label: 'POS', icon: 'pos' as const, kbd: '⌘P' },
-  { to: '/inventory', label: 'Inventory', icon: 'inventory' as const },
-  { to: '/containers', label: 'Containers', icon: 'containers' as const },
-  { to: '/sales', label: 'Sales & Analytics', icon: 'sales' as const },
-  { to: '/loyalty', label: 'Loyalty Points', icon: 'loyalty' as const },
-  { to: '/customers', label: 'Customer List', icon: 'customers' as const },
-  { to: '/expenses', label: 'Expenses', icon: 'expenses' as const },
-  { to: '/staff', label: 'Staff approval', icon: 'staff' as const, ownerOnly: true },
+  { to: '/wrs-management', label: 'Dashboard', end: true, icon: 'dashboard' as const },
+  { to: '/wrs-management/pos', label: 'POS', icon: 'pos' as const },
+  { to: '/wrs-management/orders', label: 'Water Orders', icon: 'orders' as const },
+  { to: '/wrs-management/ice-orders', label: 'Ice Order Management', icon: 'ice' as const },
+  { to: '/wrs-management/delivery', label: 'Delivery Management', icon: 'delivery' as const },
+  { to: '/wrs-management/inventory', label: 'Inventory', icon: 'inventory' as const },
+  { to: '/wrs-management/customers', label: 'Customers', icon: 'customers' as const },
+  { to: '/wrs-management/staff', label: 'Riders', icon: 'riders' as const, ownerOnly: true },
+  { to: '/wrs-management/sales', label: 'Reports', icon: 'sales' as const },
+  { to: '/wrs-management/containers', label: 'Containers', icon: 'containers' as const },
+  { to: '/wrs-management/loyalty', label: 'Loyalty Points', icon: 'loyalty' as const },
+  { to: '/wrs-management/expenses', label: 'Expenses', icon: 'expenses' as const },
 ] as const;
 
 const PAGE_TITLES: { match: (path: string) => boolean; label: string }[] = [
-  { match: (p) => p === '/', label: 'Overview' },
-  { match: (p) => p.startsWith('/pos'), label: 'POS' },
-  { match: (p) => p.startsWith('/inventory'), label: 'Inventory' },
-  { match: (p) => p.startsWith('/containers'), label: 'Containers' },
-  { match: (p) => p.startsWith('/sales'), label: 'Sales & Analytics' },
-  { match: (p) => p.startsWith('/loyalty'), label: 'Loyalty Points' },
-  { match: (p) => p.startsWith('/customers'), label: 'Customer List' },
-  { match: (p) => p.startsWith('/expenses'), label: 'Expenses' },
-  { match: (p) => p.startsWith('/staff'), label: 'Staff approval' },
-  { match: (p) => p.startsWith('/ewallet'), label: 'E-wallet' },
-  { match: (p) => p.startsWith('/settings'), label: 'Settings' },
+  { match: (p) => p === '/wrs-management', label: 'Dashboard' },
+  { match: (p) => p.startsWith('/wrs-management/pos'), label: 'POS' },
+  { match: (p) => p.startsWith('/wrs-management/orders'), label: 'Water Orders' },
+  { match: (p) => p.startsWith('/wrs-management/ice-orders'), label: 'Ice Order Management' },
+  { match: (p) => p.startsWith('/wrs-management/delivery'), label: 'Delivery Management' },
+  { match: (p) => p.startsWith('/wrs-management/inventory'), label: 'Inventory' },
+  { match: (p) => p.startsWith('/wrs-management/containers'), label: 'Containers' },
+  { match: (p) => p.startsWith('/wrs-management/sales'), label: 'Reports' },
+  { match: (p) => p.startsWith('/wrs-management/loyalty'), label: 'Loyalty Points' },
+  { match: (p) => p.startsWith('/wrs-management/customers'), label: 'Customers' },
+  { match: (p) => p.startsWith('/wrs-management/expenses'), label: 'Expenses' },
+  { match: (p) => p.startsWith('/wrs-management/staff'), label: 'Riders' },
+  { match: (p) => p.startsWith('/wrs-management/ewallet'), label: 'E-wallet' },
+  { match: (p) => p.startsWith('/wrs-management/settings'), label: 'Settings' },
 ];
 
 function readStoreOpen() {
   try {
-    return localStorage.getItem(STORE_OPEN_KEY) !== 'closed';
+    const stored = localStorage.getItem(STORE_OPEN_KEY) ?? localStorage.getItem('water-chaste-store-open');
+    return stored !== 'closed';
   } catch {
     return true;
   }
@@ -179,18 +221,21 @@ export function AdminLayout() {
   const { visibleOrders, dismissBanner } = usePendingOrderReminder(businessId);
 
   const wideMain =
-    location.pathname === '/pos' ||
-    location.pathname === '/inventory' ||
-    location.pathname === '/sales' ||
-    location.pathname === '/containers' ||
-    location.pathname.startsWith('/settings');
+    location.pathname === '/wrs-management/pos' ||
+    location.pathname === '/wrs-management/inventory' ||
+    location.pathname === '/wrs-management/sales' ||
+    location.pathname === '/wrs-management/orders' ||
+    location.pathname === '/wrs-management/ice-orders' ||
+    location.pathname === '/wrs-management/delivery' ||
+    location.pathname === '/wrs-management/containers' ||
+    location.pathname.startsWith('/wrs-management/settings');
 
   const settingsSection = new URLSearchParams(location.search).get('section');
   const pageLabel = PAGE_TITLES.find((item) => item.match(location.pathname))?.label ?? 'Workspace';
 
   useEffect(() => {
     setNavOpen(false);
-    if (location.pathname.startsWith('/settings')) setSettingsOpen(true);
+    if (location.pathname.startsWith('/wrs-management/settings')) setSettingsOpen(true);
   }, [location.pathname]);
 
   useLayoutEffect(() => {
@@ -252,7 +297,7 @@ export function AdminLayout() {
 
   async function handleSignOut() {
     await signOut();
-    navigate('/auth', { replace: true });
+    navigate('/wrs-management/login', { replace: true });
   }
 
   function setStoreStatus(open: boolean) {
@@ -289,7 +334,7 @@ export function AdminLayout() {
         <div className="admin-mobile-bar-brand">
           <img src="/logo.png" alt="" className="admin-mobile-bar-logo" />
           <div className="admin-mobile-bar-text">
-            <span className="admin-mobile-bar-title">Water Chaste</span>
+            <span className="admin-mobile-bar-title">WaterMarket</span>
             <span className="admin-mobile-bar-page">{pageLabel}</span>
           </div>
         </div>
@@ -309,10 +354,10 @@ export function AdminLayout() {
       <aside id="admin-sidebar" className="admin-sidebar">
         <div className="admin-sidebar-inner">
           <div className="admin-brand">
-            <img src="/logo.png" alt="Water Chaste" className="admin-brand-logo" />
+            <img src="/logo.png" alt="WaterMarket" className="admin-brand-logo" />
             <div>
-              <div className="admin-brand-title">Water Chaste</div>
-              <div className="admin-brand-sub">Water station</div>
+              <div className="admin-brand-title">WaterMarket</div>
+              <div className="admin-brand-sub">WRS Management</div>
             </div>
           </div>
 
@@ -358,23 +403,25 @@ export function AdminLayout() {
                     </span>
                     <span className="admin-nav-label">{item.label}</span>
                   </span>
-                  {'kbd' in item ? <span className="admin-nav-kbd">{item.kbd}</span> : null}
-                  {item.to === '/' && pendingOrders > 0 ? <span className="admin-badge">{pendingOrders}</span> : null}
-                  {item.to === '/staff' && pendingStaff > 0 ? <span className="admin-badge">{pendingStaff}</span> : null}
+                  {item.to === '/wrs-management/ice-orders' ? (
+                    <span className={`admin-status-pill${storeOpen ? '' : ' is-off'}`}>{storeOpen ? 'Online' : 'Offline'}</span>
+                  ) : null}
+                  {item.to === '/wrs-management/orders' && pendingOrders > 0 ? <span className="admin-badge">{pendingOrders}</span> : null}
+                  {item.to === '/wrs-management/staff' && pendingStaff > 0 ? <span className="admin-badge">{pendingStaff}</span> : null}
                 </NavLink>
               ))}
 
               <button
                 type="button"
-                className={`admin-nav-link admin-nav-link--button${location.pathname.startsWith('/settings') ? ' active' : ''}`}
+                className={`admin-nav-link admin-nav-link--button${location.pathname.startsWith('/wrs-management/settings') ? ' active' : ''}`}
                 aria-expanded={settingsOpen}
                 onClick={() => {
-                  if (location.pathname.startsWith('/settings')) {
+                  if (location.pathname.startsWith('/wrs-management/settings')) {
                     setSettingsOpen((v) => !v);
                     return;
                   }
                   setSettingsOpen(true);
-                  navigate('/settings?section=general');
+                  navigate('/wrs-management/settings?section=general');
                 }}
               >
                 <span className="admin-nav-link-inner">
@@ -391,9 +438,9 @@ export function AdminLayout() {
               {settingsOpen ? (
                 <div className="admin-subnav" ref={settingsMenuRef}>
                   <NavLink
-                    to="/settings?section=general"
+                    to="/wrs-management/settings?section=general"
                     className={() =>
-                      location.pathname.startsWith('/settings') && (settingsSection ?? 'general') === 'general'
+                      location.pathname.startsWith('/wrs-management/settings') && (settingsSection ?? 'general') === 'general'
                         ? 'admin-subnav-link active'
                         : 'admin-subnav-link'
                     }
@@ -402,7 +449,7 @@ export function AdminLayout() {
                     General Settings
                   </NavLink>
                   <NavLink
-                    to="/settings?section=account"
+                    to="/wrs-management/settings?section=account"
                     className={() =>
                       settingsSection === 'account' ? 'admin-subnav-link active' : 'admin-subnav-link'
                     }
@@ -411,7 +458,7 @@ export function AdminLayout() {
                     Account Settings
                   </NavLink>
                   <NavLink
-                    to="/settings?section=notifications"
+                    to="/wrs-management/settings?section=notifications"
                     className={() =>
                       settingsSection === 'notifications' ? 'admin-subnav-link active' : 'admin-subnav-link'
                     }

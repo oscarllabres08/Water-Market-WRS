@@ -5,9 +5,7 @@ type Extra = {
   supabaseAnonKey?: string;
 };
 
-const WATER_CHASTE_URL = 'https://hjvwwxdyyugjchkeolyp.supabase.co';
-const WATER_CHASTE_ANON_KEY = 'sb_publishable_syjSQ1DOnVQndCcAzDLRgA_icj7QHx2';
-const RETIRED_HOST = 'nigvimeeqglqvgvtnbfy';
+const BLOCKED_HOSTS = ['hjvwwxdyyugjchkeolyp', 'nigvimeeqglqvgvtnbfy'];
 
 function readExtra(): Extra {
   const constants = Constants as {
@@ -25,13 +23,13 @@ function readExtra(): Extra {
 
 export function getSupabaseUrlAndKey(): { url: string; anonKey: string } {
   const extra = readExtra();
-  let url = (extra.supabaseUrl || process.env.EXPO_PUBLIC_SUPABASE_URL || '').trim();
-  let anonKey = (extra.supabaseAnonKey || process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '').trim();
+  const url = (extra.supabaseUrl || process.env.EXPO_PUBLIC_SUPABASE_URL || '').trim();
+  const anonKey = (extra.supabaseAnonKey || process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '').trim();
 
-  // Release APKs must still open when EAS env was not copied into the binary.
-  if (!url || !anonKey || url.includes(RETIRED_HOST) || anonKey.includes(RETIRED_HOST)) {
-    url = WATER_CHASTE_URL;
-    anonKey = WATER_CHASTE_ANON_KEY;
+  if (!url || !anonKey || BLOCKED_HOSTS.some((host) => url.includes(host) || anonKey.includes(host))) {
+    throw new Error(
+      'Missing WaterMarket Supabase settings. Set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY, then restart Expo with a cleared cache.'
+    );
   }
 
   return { url, anonKey };

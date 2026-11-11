@@ -34,7 +34,7 @@ export async function requestPendingOrderReminders(orderIds: string[]): Promise<
       return {
         ok: false,
         message: missing
-          ? 'Run the latest request_pending_order_reminder function from supabase/water-chaste.sql in Supabase, then try again.'
+          ? 'Run the latest request_pending_order_reminder function from supabase/migrations/0001_wrs_baseline.sql in Supabase, then try again.'
           : error.message,
       };
     }

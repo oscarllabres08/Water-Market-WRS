@@ -1,143 +1,40 @@
-# WRS Water Chaste
+# WaterMarket
 
-Water Refilling Station system — **Admin Website**, **Backend / DB**, **Seller Mobile App**, at **Customer Mobile App**.
+Water refilling, ice, and laundry on one WaterMarket project. The water station screens, customer app, and rider app keep their existing layout.
 
-## System structure
+## Apps
 
-```
-                    ┌─────────────────────────────────────┐
-                    │           ADMIN WEBSITE             │
-                    │  Master Admin · Staff Management    │
-                    │  POS · Inventory · Sales Reports    │
-                    │  Analytics · Customer Management    │
-                    └─────────────────┬───────────────────┘
-                                      │
-                    ┌─────────────────▼───────────────────┐
-                    │           BACKEND / DB              │
-                    │  Authentication · Users / Roles     │
-                    │  Products · Orders · Payments       │
-                    │  Inventory · Customers              │
-                    │  Notifications · Sales              │
-                    └─────────┬───────────────┬───────────┘
-                              │               │
-              ┌───────────────▼───┐   ┌───────▼──────────────┐
-              │ SELLER MOBILE   │   │ CUSTOMER MOBILE APP  │
-              │ Orders          │   │ Home · Products      │
-              │ Delivery        │   │ Checkout             │
-              │ Customers       │   │ Order History        │
-              │ Notifications   │   │ Profile              │
-              │ Profile         │   │                      │
-              └─────────────────┘   └──────────────────────┘
-```
-
-```mermaid
-flowchart TB
-  Admin["Admin Website"]
-  Backend["Backend / DB"]
-  Seller["Seller Mobile App"]
-  Customer["Customer Mobile App"]
-
-  Admin --> Backend
-  Backend --> Seller
-  Backend --> Customer
-```
-
-| Layer | Modules |
+| Folder | What it is |
 | --- | --- |
-| **Admin Website** | Master Admin, Staff Management, POS, Inventory, Sales Reports, Analytics, Customer Management |
-| **Backend / DB** | Authentication, Users / Roles, Products, Orders, Payments, Inventory, Customers, Notifications, Sales |
-| **Seller Mobile App** | Orders, Delivery, Customers, Notifications, Profile |
-| **Customer Mobile App** | Home, Products, Checkout, Order History, Profile |
+| `admin-web/` | Public website plus WRS, laundry, and owner portals |
+| `customer-app/` | WaterMarket Customer (Expo) |
+| `rider-app/` | WaterMarket Rider (Expo). The database role is still `seller`. |
+| `supabase/` | SQL migrations and the push function |
 
-## Monorepo map
+## Website paths
 
-| Folder | Role sa bagong structure |
-| --- | --- |
-| `admin-web/` | Admin Website (Vite + Supabase — POS, inventory, reports, staff, analytics) |
-| `supabase/` | Backend / DB. Run `supabase/water-chaste.sql` once. |
-| `seller-app/` | Rider mobile app (Expo SDK 55) |
-| `customer-app/` | Customer mobile app (Expo SDK 55) |
+- `/` public home
+- `/water-refilling` customer app download, and the rider app behind the store PIN
+- `/ice-cubes` ice catalog and delivery order
+- `/laundry` laundry booking
+- `/wrs-management` water and ice back office
+- `/laundry-management` laundry back office
+- `/overall-sales` owner totals
 
-### Migration note (current code → target)
+Sign-in URLs are `/wrs-management/login`, `/laundry-management/login`, and `/overall-sales/login`.
 
-Ang **seller mobile app** ay naka-focus sa **Orders, Delivery, Customers, Notifications (Alerts), Profile**. POS, inventory, sales reports, at staff approval — sa **Admin Website**. Ang customer flows ay sa **Customer Mobile App**.
+## Database
 
----
+Run `supabase/README.md`. Do not run `supabase/manual/delete-all-orders.sql` during setup.
 
-## 1) Backend / DB (Supabase)
+The live environment files already point at the WaterMarket Supabase project. Do not replace them.
 
-1. Use the Water Chaste Supabase project (`hjvwwxdyyugjchkeolyp`). Do not point apps at another client's project.
-2. In the Supabase SQL Editor, open `supabase/water-chaste.sql` and run the whole file once.
-3. Enable Realtime for tables (Dashboard → Database → Replication):
-   - `public.orders`
-   - `public.order_items`
-   - `public.products`
-   - `public.ewallet_accounts`
+## Mobile builds
 
-### Storage bucket (logos + QR)
+Package names are `com.watermarket.customer` and `com.watermarket.rider`. EAS project IDs were removed so these apps do not attach to Water Chaste. Create new Expo projects with `eas init` in each app folder. Replace `google-services.json` after the WaterMarket Firebase project exists. Until then, push notifications still point at the previous Firebase project.
 
-`supabase/water-chaste.sql` creates the public bucket **`wrs-assets`**.
+APK files for the website are in `admin-web/public/downloads/`.
 
-### Seller / staff accounts
+## GitHub
 
-After register (`profiles` row), set role and team as needed:
-
-```sql
-update public.profiles set role = 'seller' where user_id = '<YOUR_AUTH_UID>';
-```
-
-Master admin (store owner) and staff approval are included in `supabase/water-chaste.sql`.
-
-Push notifications: `supabase/functions/README.md`.
-
----
-
-## 2) Admin Website
-
-Web dashboard sa `admin-web/` — Master Admin, Staff Management, POS, Inventory, Sales Reports, Analytics, Customer Management. **Same Supabase project** as the mobile apps (shared products, orders, staff, POS sales; Realtime sync).
-
-1. Copy `admin-web/.env.local.example` → `admin-web/.env.local`
-2. Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (same as seller/customer).
-3. Run:
-
-```bash
-cd admin-web
-npm install
-npm run dev
-```
-
-Sign in with the **store owner** account. Staff use the Seller mobile app only.
-
-See `admin-web/README.md`.
-
----
-
-## 3) Seller Mobile App (Expo SDK 55)
-
-Field at store operations: orders, delivery, customers, notifications, profile.
-
-1. Copy env (same Supabase project as admin / customer):
-
-```bash
-cd seller-app
-copy .env.example .env
-npm install
-npm run start
-```
-
-Use `npx expo start -c` after changing `.env` (clear Metro cache).
-
----
-
-## 4) Customer Mobile App (Expo SDK 55)
-
-Primary customer channel: home, products/order, checkout, order history, profile.
-
-```bash
-cd customer-app
-copy .env.example .env
-npm install
-npm run start
-```
-
-(Same `EXPO_PUBLIC_SUPABASE_*` values as seller-app and admin `VITE_*` keys.)
+`origin` is still the Water Chaste repository. Point it at a new WaterMarket repository before pushing. `scripts/push-monorepo.ps1` refuses to continue while origin still contains Water-Chaste.

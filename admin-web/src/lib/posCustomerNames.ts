@@ -125,7 +125,7 @@ export async function savePosWalkInCustomer(
     return {
       ok: false,
       message: missing
-        ? 'Run the seller_pos_customers table from supabase/water-chaste.sql in Supabase, then try again.'
+        ? 'Run the seller_pos_customers table from supabase/migrations/0001_wrs_baseline.sql in Supabase, then try again.'
         : error.message,
     };
   }

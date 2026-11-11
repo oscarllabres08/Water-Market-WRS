@@ -55,13 +55,13 @@ export default function LegalWelcomeScreen() {
             source={authLogo}
             style={{ width: 280, height: 168 }}
             resizeMode="contain"
-            accessibilityLabel="Water Chaste"
+            accessibilityLabel="WaterMarket"
             accessibilityIgnoresInvertColors
           />
         </View>
 
         <Text variant="title" weight="extrabold" style={{ textAlign: 'center' }}>
-          Welcome to Water Chaste
+          Welcome to WaterMarket
         </Text>
         <Text variant="muted" style={{ marginTop: 6, textAlign: 'center', lineHeight: 20 }}>
           Before you sign in, please review how we handle your information.

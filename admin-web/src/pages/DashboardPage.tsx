@@ -329,7 +329,7 @@ export function DashboardPage() {
           <h1>Your station at a glance</h1>
           <p>Sales, stock, and orders for today.</p>
         </div>
-        <Link to="/pos" className="btn station-new-sale">
+        <Link to="/wrs-management/pos" className="btn station-new-sale">
           + New sale
         </Link>
       </div>
@@ -348,7 +348,7 @@ export function DashboardPage() {
           <div>
             <span className="station-stat-label">Today&apos;s expenses</span>
             <strong>{money(expensesToday)}</strong>
-            <em><Link to="/expenses">Manage</Link></em>
+            <em><Link to="/wrs-management/expenses">Manage</Link></em>
           </div>
         </article>
         <article className="station-stat tone-navy">
@@ -380,7 +380,7 @@ export function DashboardPage() {
           <div>
             <span className="station-stat-label">Loyalty members</span>
             <strong>{loyaltyMembers}</strong>
-            <em><Link to="/loyalty">View program</Link></em>
+            <em><Link to="/wrs-management/loyalty">View program</Link></em>
           </div>
         </article>
         <article className="station-stat tone-green">
@@ -396,7 +396,7 @@ export function DashboardPage() {
       {staffPending > 0 ? (
         <div className="card station-note">
           <strong>{staffPending}</strong> staff registration{staffPending === 1 ? '' : 's'} waiting for approval.{' '}
-          <Link to="/staff">Review in Staff account approval</Link>
+          <Link to="/wrs-management/staff">Review in Staff account approval</Link>
         </div>
       ) : null}
 
@@ -404,7 +404,7 @@ export function DashboardPage() {
         <section className="card station-panel">
           <div className="station-panel-head">
             <h2>Sales overview</h2>
-            <Link to="/sales">Last 7 days</Link>
+            <Link to="/wrs-management/sales">Last 7 days</Link>
           </div>
           <SalesBarChart points={timeline} height={148} slotWidth={36} />
           <p className="station-chart-total">
@@ -415,21 +415,21 @@ export function DashboardPage() {
           <div className="station-panel-head">
             <h2>Quick actions</h2>
           </div>
-          <Link to="/pos" className="station-action">
+          <Link to="/wrs-management/pos" className="station-action">
             <span className="station-action-icon tone-blue" aria-hidden><PesoIcon /></span>
             <span>
               <strong>Start a new sale</strong>
               <small>Open point of sale</small>
             </span>
           </Link>
-          <Link to="/inventory" className="station-action">
+          <Link to="/wrs-management/inventory" className="station-action">
             <span className="station-action-icon tone-cyan" aria-hidden><BoxIcon /></span>
             <span>
               <strong>Check inventory</strong>
               <small>{productCount} product{productCount === 1 ? '' : 's'}</small>
             </span>
           </Link>
-          <Link to="/customers" className="station-action">
+          <Link to="/wrs-management/customers" className="station-action">
             <span className="station-action-icon tone-green" aria-hidden><PeopleIcon /></span>
             <span>
               <strong>Add a customer</strong>
@@ -443,7 +443,7 @@ export function DashboardPage() {
         <section className="card station-panel">
           <div className="station-panel-head">
             <h2>Recent transactions</h2>
-            <Link to="/sales">View all</Link>
+            <Link to="/wrs-management/sales">View all</Link>
           </div>
           {recent.length === 0 ? (
             <p className="muted-block">No orders yet.</p>
@@ -488,7 +488,7 @@ export function DashboardPage() {
         <section className="card station-panel">
           <div className="station-panel-head">
             <h2>Inventory snapshot</h2>
-            <Link to="/inventory">Manage</Link>
+            <Link to="/wrs-management/inventory">Manage</Link>
           </div>
           {snapshot.length === 0 ? (
             <p className="muted-block">No products yet.</p>

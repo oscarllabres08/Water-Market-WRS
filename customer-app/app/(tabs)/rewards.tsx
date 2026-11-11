@@ -90,7 +90,7 @@ export default function RewardsTabScreen() {
       const msg = e instanceof Error ? e.message : 'Failed to load rewards';
       setErr(
         msg.includes('loyalty_balances') || msg.includes('schema cache')
-          ? `${msg}\n\nRun supabase/water-chaste.sql once in Supabase.`
+          ? `${msg}\n\nRun supabase/migrations/0001_wrs_baseline.sql once in Supabase.`
           : msg
       );
     } finally {

@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "Water Chaste",
-    "slug": "water-chaste-customer",
+    "name": "WaterMarket Customer",
+    "slug": "watermarket-customer",
     "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "scheme": "waterchastecustomer",
+    "scheme": "watermarketcustomer",
     "userInterfaceStyle": "automatic",
     "androidStatusBar": {
       "barStyle": "dark-content",
@@ -19,7 +19,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.waterchaste.customer",
+      "bundleIdentifier": "com.watermarket.customer",
       "googleServicesFile": "./GoogleService-Info.plist"
     },
     "android": {
@@ -29,7 +29,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#FFFFFF"
       },
-      "package": "com.waterchaste.customer",
+      "package": "com.watermarket.customer",
       "versionCode": 2,
       "predictiveBackGestureEnabled": false,
       "permissions": [
@@ -60,7 +60,7 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Water Chaste uses your location to save your delivery address."
+          "locationWhenInUsePermission": "WaterMarket uses your location to save your delivery address."
         }
       ]
     ],
@@ -71,12 +71,7 @@
       "enabled": false
     },
     "extra": {
-      "router": {},
-      "supabaseUrl": "https://hjvwwxdyyugjchkeolyp.supabase.co",
-      "supabaseAnonKey": "sb_publishable_syjSQ1DOnVQndCcAzDLRgA_icj7QHx2",
-      "eas": {
-        "projectId": "5181d065-0f4c-4dff-acaa-18382b1da69c"
-      }
+      "router": {}
     }
   }
 }

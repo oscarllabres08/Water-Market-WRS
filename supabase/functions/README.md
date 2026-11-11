@@ -4,12 +4,12 @@ This repo includes an Edge Function that sends **real Android push notifications
 
 ### 1) Deploy the function
 
-From the **repo root** (not `seller-app`). The `supabase` command only works after the CLI is installed or via `npx`.
+From the **repo root** (not `rider-app`). The `supabase` command only works after the CLI is installed or via `npx`.
 
 **Windows PowerShell (no global install):**
 
 ```powershell
-cd "C:\Users\Oscar Jomer\Documents\WRS Water Chaste\WRS Water Waste"
+cd "C:\Users\Oscar Jomer\Documents\WRS WaterMarket\WRS Water Waste"
 $env:NODE_OPTIONS="--use-system-ca"   # required on some Windows PCs (SSL / Transport error)
 ```
 
@@ -21,21 +21,21 @@ $env:NODE_OPTIONS="--use-system-ca"   # required on some Windows PCs (SSL / Tran
 ```powershell
 $env:SUPABASE_ACCESS_TOKEN="sbp_xxxxxxxx"
 npx supabase@latest login --token $env:SUPABASE_ACCESS_TOKEN
-npx supabase@latest functions deploy push-notify --project-ref hjvwwxdyyugjchkeolyp
+npx supabase@latest functions deploy push-notify --project-ref YOUR_WATERMARKET_PROJECT_REF
 ```
 
 Or one shot without storing login:
 
 ```powershell
 $env:SUPABASE_ACCESS_TOKEN="sbp_xxxxxxxx"
-npx supabase@latest functions deploy push-notify --project-ref hjvwwxdyyugjchkeolyp
+npx supabase@latest functions deploy push-notify --project-ref YOUR_WATERMARKET_PROJECT_REF
 ```
 
 Optional global CLI: `scoop install supabase` or `npm install -g supabase`, then:
 
 ```bash
 supabase login
-supabase functions deploy push-notify --project-ref hjvwwxdyyugjchkeolyp
+supabase functions deploy push-notify --project-ref YOUR_WATERMARKET_PROJECT_REF
 ```
 
 Kapag nag-edit ka ng `supabase/functions/push-notify/index.ts`, kailangan mo ulit **`deploy`** bago lumabas ang bagong behavior/logs sa Dashboard.
@@ -45,7 +45,7 @@ Kapag nag-edit ka ng `supabase/functions/push-notify/index.ts`, kailangan mo uli
 Ang **`sbp_` token ay OK** — ang CLI lang hindi makakonekta sa `api.supabase.com` (TLS/antivirus), kahit gumagana ang browser at `curl`.
 
 1. Siguraduhing naka-set: `$env:SUPABASE_ACCESS_TOKEN="sbp_..."` sa **same** PowerShell session bago deploy.
-2. Subukan **standalone CLI** (hindi `npx`): `scoop install supabase` o [Supabase CLI releases](https://github.com/supabase/cli/releases) → `supabase functions deploy push-notify --project-ref hjvwwxdyyugjchkeolyp`
+2. Subukan **standalone CLI** (hindi `npx`): `scoop install supabase` o [Supabase CLI releases](https://github.com/supabase/cli/releases) → `supabase functions deploy push-notify --project-ref YOUR_WATERMARKET_PROJECT_REF`
 3. **`WARNING: Docker is not running`** — OK lang para sa remote deploy; hindi iyan ang root cause ng TransportError.
 4. Kung CLI pa rin fail → **Deploy sa Dashboard** (below).
 
@@ -61,7 +61,7 @@ Ang **`sbp_` token ay OK** — ang CLI lang hindi makakonekta sa `api.supabase.c
 In Supabase Dashboard:
 
 - **`PUSH_WEBHOOK_SECRET`**: any strong secret string
-- **`FCM_PROJECT_ID`**: the new Water Chaste Firebase project id (do not reuse another client's Firebase project)
+- **`FCM_PROJECT_ID`**: the new WaterMarket Firebase project id (do not reuse another client's Firebase project)
 - **`FCM_SERVICE_ACCOUNT_JSON`**: paste your Firebase service account JSON (as one line)
 - **`SB_URL`**: your Supabase project URL
 - **`SB_SERVICE_ROLE_KEY`**: service role key (kept secret)
@@ -109,7 +109,7 @@ node supabase/scripts/test-push-notify.mjs
 
 2. **Naka-deploy ba ang Edge Function at may secrets?** Sa Dashboard → Edge Functions → `push-notify` → dapat naka-set ang `FCM_SERVICE_ACCOUNT_JSON`, `FCM_PROJECT_ID`, `PUSH_WEBHOOK_SECRET`, `SB_URL`, `SB_SERVICE_ROLE_KEY`.
 
-3. **pg_net** — Dapat naka-enable ang extension `pg_net` sa project (kasama sa `supabase/water-chaste.sql`). Kung hindi, `net.http_post` ay hindi gagana.
+3. **pg_net** — Dapat naka-enable ang extension `pg_net` sa project (kasama sa `supabase/migrations/0001_wrs_baseline.sql`). Kung hindi, `net.http_post` ay hindi gagana.
 
 4. **Telepono** — Payagan ang notifications para sa app; sa Android 13+ kailangan ang **POST_NOTIFICATIONS** (idinagdag na sa `app.json`). Pagkatapos mag-install, buksan muli ang app pagkatapos mag-login para ma-save ang FCM token sa `push_tokens`.
 

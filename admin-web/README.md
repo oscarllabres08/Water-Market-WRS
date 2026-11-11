@@ -1,6 +1,6 @@
-# Water Chaste Admin Website
+# WaterMarket Admin Website
 
-Web dashboard for the **store owner (master admin)**. Uses the same Supabase project as `seller-app` and `customer-app`:
+Web dashboard for the **store owner (master admin)**. Uses the same Supabase project as `rider-app` and `customer-app`:
 
 - **Products / inventory** → customer catalog & POS
 - **Orders & sales** → realtime with mobile apps

@@ -11,15 +11,15 @@ export const LEGAL_WELCOME_SUMMARY: string[] = [
   'We collect your name, contact number, delivery address, and optional GPS location to process and deliver your orders.',
   'We may store profile photo, payment method, payment reference, and payment proof screenshots for GCash/Maya orders.',
   'Order updates may be sent through push notifications if you enable them on your device.',
-  'Your data is stored securely and shared only with Water Chaste staff to fulfill your orders.',
+  'Your data is stored securely and shared only with WaterMarket staff to fulfill your orders.',
   'You can read the full Terms & Conditions and Privacy Policy below before continuing.',
 ];
 
 export const TERMS_OF_SERVICE: LegalSection[] = [
   {
-    heading: '1. About Water Chaste',
+    heading: '1. About WaterMarket',
     body:
-      'The Water Chaste Customer App (“App”) is operated by Water Chaste Water Refilling Station (“we”, “us”, “our”). By creating an account or placing an order, you agree to these Terms & Conditions.',
+      'The WaterMarket Customer App (“App”) is operated by WaterMarket Water Refilling Station (“we”, “us”, “our”). By creating an account or placing an order, you agree to these Terms & Conditions.',
   },
   {
     heading: '2. Account & eligibility',
@@ -49,7 +49,7 @@ export const TERMS_OF_SERVICE: LegalSection[] = [
   {
     heading: '7. Limitation of liability',
     body:
-      'The App is provided to help you order from Water Chaste. To the extent permitted by law, we are not liable for indirect losses, delays caused by factors outside our control, or issues arising from inaccurate information you provide.',
+      'The App is provided to help you order from WaterMarket. To the extent permitted by law, we are not liable for indirect losses, delays caused by factors outside our control, or issues arising from inaccurate information you provide.',
   },
   {
     heading: '8. Changes',
@@ -66,7 +66,7 @@ export const PRIVACY_POLICY: LegalSection[] = [
   {
     heading: '1. Overview',
     body:
-      'We respect your privacy. This Privacy Policy explains what personal data we collect through the Water Chaste Customer App, why we collect it, and how we use and protect it.',
+      'We respect your privacy. This Privacy Policy explains what personal data we collect through the WaterMarket Customer App, why we collect it, and how we use and protect it.',
   },
   {
     heading: '2. Data we collect',
@@ -86,7 +86,7 @@ export const PRIVACY_POLICY: LegalSection[] = [
   {
     heading: '5. Sharing of data',
     body:
-      'Order and contact details are shared with Water Chaste store staff so they can fulfill your delivery. We use secure database and file storage. We do not sell your personal data to third parties.',
+      'Order and contact details are shared with WaterMarket store staff so they can fulfill your delivery. We use secure database and file storage. We do not sell your personal data to third parties.',
   },
   {
     heading: '6. Data retention',

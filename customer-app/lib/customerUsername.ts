@@ -1,7 +1,7 @@
 import { validateAuthEmail, validateAuthPassword, type AuthInputCheck } from './authInputSecurity';
 
 /** Internal mailbox for username accounts. Customers never see or type this. */
-const CUSTOMER_USERNAME_DOMAIN = 'customer.waterchaste.app';
+const CUSTOMER_USERNAME_DOMAIN = 'customer.watermarket.ph';
 
 const USERNAME_PATTERN = /^[a-z0-9_]{3,20}$/;
 

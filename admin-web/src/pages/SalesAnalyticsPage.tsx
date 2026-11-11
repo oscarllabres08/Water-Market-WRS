@@ -215,7 +215,7 @@ export function SalesAnalyticsPage() {
         const day = period === 'today' ? now.getDate() : filterDay;
         const payload = await fetchDayExportPayload(businessId, year, month, day);
         const stamp = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-        await downloadDaySpreadsheet(payload, `water-chaste-sales-${stamp}.xlsx`);
+        await downloadDaySpreadsheet(payload, `watermarket-sales-${stamp}.xlsx`);
       } else if (period === 'week') {
         const { from, to } = calendarWeekBounds(now);
         const start = from.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -225,17 +225,17 @@ export function SalesAnalyticsPage() {
           from,
           to,
           'week',
-          'Water Chaste — Weekly Sales Report',
+          'WaterMarket — Weekly Sales Report',
           `${start} – ${end}`
         );
-        await downloadRangeSpreadsheet(payload, `water-chaste-sales-week-${toDateInputValue(from)}.xlsx`);
+        await downloadRangeSpreadsheet(payload, `watermarket-sales-week-${toDateInputValue(from)}.xlsx`);
       } else if (period === 'month') {
         const payload = await fetchMonthExportPayload(businessId, now.getFullYear(), now.getMonth());
-        const name = `water-chaste-sales-${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}.xlsx`;
+        const name = `watermarket-sales-${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}.xlsx`;
         await downloadMonthSpreadsheet(payload, name);
       } else {
         const payload = await fetchYearExportPayload(businessId, now.getFullYear());
-        await downloadYearSpreadsheet(payload, `water-chaste-sales-${now.getFullYear()}.xlsx`);
+        await downloadYearSpreadsheet(payload, `watermarket-sales-${now.getFullYear()}.xlsx`);
       }
     } catch (e) {
       setExportError(e instanceof Error ? e.message : 'Export failed. Check your internet connection and try again.');

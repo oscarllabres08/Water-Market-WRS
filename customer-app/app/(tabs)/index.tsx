@@ -111,7 +111,7 @@ export default function HomeScreen() {
             source={heroImage}
             style={{ width: '100%', height: '100%' }}
             resizeMode="cover"
-            accessibilityLabel="Water Chaste store"
+            accessibilityLabel="WaterMarket store"
           />
           <Pressable
             onPress={() => setNotifOpen(true)}
@@ -176,7 +176,7 @@ export default function HomeScreen() {
 
         <Card>
           <Text weight="bold" style={{ color: theme.colors.primaryDark, fontSize: 18 }}>
-            Why Water Chaste
+            Why WaterMarket
           </Text>
           <Text weight="regular" style={{ color: theme.colors.muted, marginTop: 3, lineHeight: 18 }}>
             Tap a highlight to start an order.

@@ -31,7 +31,7 @@ export async function ensureAndroidNotificationChannels(): Promise<void> {
 
   await Notifications.setNotificationChannelAsync(NOTIF_CHANNEL_SOUND, {
     name: 'Order alerts (sound)',
-    description: 'Alerts with the Water Chaste notification sound',
+    description: 'Alerts with the WaterMarket notification sound',
     importance: Notifications.AndroidImportance.MAX,
     sound: NOTIF_SOUND_RAW,
     audioAttributes: {

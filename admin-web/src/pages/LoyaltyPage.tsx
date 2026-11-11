@@ -82,7 +82,7 @@ export function LoyaltyPage() {
 
   const branch =
 
-    profile?.display_name?.trim() ? `${profile.display_name.trim()} · Water Chaste` : 'Water Chaste Main Branch';
+    profile?.display_name?.trim() ? `${profile.display_name.trim()} · WaterMarket` : 'WaterMarket Main Branch';
 
 
 
@@ -360,7 +360,7 @@ export function LoyaltyPage() {
 
           msg.includes('seller_verify_loyalty') || msg.includes('schema cache')
 
-            ? `${msg} Run supabase/water-chaste.sql once in Supabase.`
+            ? `${msg} Run supabase/migrations/0001_wrs_baseline.sql once in Supabase.`
 
             : msg,
 

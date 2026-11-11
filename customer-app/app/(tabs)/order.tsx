@@ -157,7 +157,7 @@ export default function OrderScreen() {
       setErr(null);
       try {
         if (!seller?.user_id) {
-          // Products + orders use the workspace owner's user_id (seller-app `businessId`).
+          // Products + orders use the workspace owner's user_id (rider-app `businessId`).
           // Picking any `role=seller` row can return staff and yields zero products + wrong notify recipient.
           const { data: ownerRow, error: ownerErr } = await supabase
             .from('profiles')

@@ -34,7 +34,7 @@ function usernameFromAccount(username: string | null | undefined, email: string 
   const saved = (username ?? '').trim();
   if (saved) return saved;
   const [local, domain] = (email ?? '').split('@');
-  if (domain === 'customer.waterchaste.app' && local) return local;
+  if ((domain === 'customer.watermarket.ph' || domain === 'customer.waterchaste.app') && local) return local;
   return '';
 }
 

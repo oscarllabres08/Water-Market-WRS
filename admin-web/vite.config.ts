@@ -11,7 +11,7 @@ function linkPreviewOrigin(mode: string, env: Record<string, string>) {
 function linkPreviewPlugin(mode: string, env: Record<string, string>): Plugin {
   const origin = linkPreviewOrigin(mode, env);
   return {
-    name: 'water-chaste-link-preview',
+    name: 'watermarket-link-preview',
     transformIndexHtml(html) {
       return html.replaceAll('__SITE_ORIGIN__', origin);
     },

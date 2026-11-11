@@ -192,11 +192,11 @@ function initTimeline(from: Date, to: Date, period: DashboardPeriod): Map<string
   return map;
 }
 
-async function loadProductCategories(businessId: string): Promise<Map<string, 'water' | 'other'>> {
+async function loadProductCategories(businessId: string): Promise<Map<string, 'water' | 'other' | 'ice'>> {
   const { data } = await supabase.from('products').select('id,category').eq('seller_id', businessId);
-  const map = new Map<string, 'water' | 'other'>();
+  const map = new Map<string, 'water' | 'other' | 'ice'>();
   for (const p of data ?? []) {
-    const row = p as { id: string; category: 'water' | 'other' };
+    const row = p as { id: string; category: 'water' | 'other' | 'ice' };
     map.set(row.id, row.category);
   }
   return map;
@@ -205,7 +205,7 @@ async function loadProductCategories(businessId: string): Promise<Map<string, 'w
 function aggregate(
   orders: OrderRow[],
   posSales: PosRow[],
-  productCats: Map<string, 'water' | 'other'>,
+  productCats: Map<string, 'water' | 'other' | 'ice'>,
   period: DashboardPeriod,
   from: Date,
   to: Date
@@ -213,6 +213,7 @@ function aggregate(
   const timelineMap = initTimeline(from, to, period);
   const categoryTotals: Record<SalesCategoryKey, number> = {
     water: 0,
+    ice: 0,
     containers: 0,
     others: 0,
     accessories: 0,

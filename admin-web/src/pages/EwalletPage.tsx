@@ -169,7 +169,7 @@ export function EwalletPage() {
             <span>Account name</span>
             <input
               type="text"
-              placeholder="e.g. Juan Dela Cruz / Water Chaste"
+              placeholder="e.g. Juan Dela Cruz / WaterMarket"
               value={accountName}
               onChange={(e) => setAccountName(e.target.value)}
               disabled={saving || loading}

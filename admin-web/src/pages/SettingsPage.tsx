@@ -269,7 +269,7 @@ export function SettingsPage() {
     const { data: raw, error: rpcError } = await supabase.rpc('owner_clear_store_sales_history');
     if (rpcError) {
       const hint = rpcError.message.includes('owner_clear_store_sales_history')
-        ? ' Run supabase/water-chaste.sql in the Supabase SQL Editor.'
+        ? ' Run supabase/migrations/0001_wrs_baseline.sql in the Supabase SQL Editor.'
         : '';
       setClearError(rpcError.message + hint);
       setClearBusy(false);
@@ -310,14 +310,14 @@ export function SettingsPage() {
 
       {section === 'general' ? (
         <div className="settings-shortcuts">
-          <Link to="/staff" className="station-action">
+          <Link to="/wrs-management/staff" className="station-action">
             <span>
               <strong>Staff management</strong>
               <small>Approve rider accounts for this station</small>
             </span>
             <span aria-hidden>→</span>
           </Link>
-          <Link to="/ewallet" className="station-action">
+          <Link to="/wrs-management/ewallet" className="station-action">
             <span>
               <strong>E-wallet</strong>
               <small>GCash and payment QR used at the store</small>

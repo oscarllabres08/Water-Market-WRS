@@ -21,6 +21,15 @@ export function DropIcon({ className }: IconProps) {
   );
 }
 
+export function IceIcon({ className }: IconProps) {
+  return (
+    <svg className={className} {...base}>
+      <path d="M12 3.5 16.5 6v5L12 13.5 7.5 11V6L12 3.5z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+      <path d="M12 13.5V20M7.5 11 4 16.5M16.5 11 20 16.5M12 8.2v5.3M9.2 9.6h5.6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 export function BoxIcon({ className }: IconProps) {
   return (
     <svg className={className} {...base}>

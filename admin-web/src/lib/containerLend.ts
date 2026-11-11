@@ -23,7 +23,7 @@ function parseRpcPayload(raw: unknown): { ok?: boolean; message?: string } | nul
 function rpcHint(message: string): string {
   const m = message.toLowerCase();
   if (m.includes('could not find') || m.includes('pgrst202') || m.includes('404')) {
-    return ' Run supabase/water-chaste.sql once in the Supabase SQL Editor.';
+    return ' Run supabase/migrations/0001_wrs_baseline.sql once in the Supabase SQL Editor.';
   }
   return '';
 }

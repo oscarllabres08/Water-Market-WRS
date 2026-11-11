@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 
-/** Water Chaste — sampled from the logo (royal blue, water cyan, leaf green). */
+/** WaterMarket — sampled from the logo (royal blue, water cyan, leaf green). */
 const shadowInk = '#06215F';
 
 const shadowCard = Platform.select({

@@ -4,8 +4,10 @@
     <script>
       try {
         var path = location.pathname;
-        var onAuth = path === '/auth' || path.indexOf('/auth/') === 0;
-        if (!onAuth && localStorage.getItem('water-chaste-admin-theme') === 'dark') {
+        var management = path.indexOf('/wrs-management') === 0 || path.indexOf('/laundry-management') === 0 || path.indexOf('/overall-sales') === 0;
+        var onLogin = path.indexOf('/login') !== -1 || path === '/auth' || path.indexOf('/auth/') === 0;
+        var theme = localStorage.getItem('watermarket-admin-theme') || localStorage.getItem('water-chaste-admin-theme');
+        if (management && !onLogin && theme === 'dark') {
           document.documentElement.setAttribute('data-theme', 'dark');
         }
       } catch (e) {}
@@ -15,23 +17,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="theme-color" content="#0B3A96" />
-    <meta name="description" content="Water Chaste store admin for orders, delivery, customers, and alerts." />
+    <meta name="description" content="WaterMarket store admin for orders, delivery, customers, and alerts." />
     <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="Water Chaste" />
-    <meta property="og:title" content="Water Chaste Admin" />
-    <meta property="og:description" content="Water Chaste store admin for orders, delivery, customers, and alerts." />
+    <meta property="og:site_name" content="WaterMarket" />
+    <meta property="og:title" content="WaterMarket Admin" />
+    <meta property="og:description" content="WaterMarket store admin for orders, delivery, customers, and alerts." />
     <meta property="og:url" content="__SITE_ORIGIN__/" />
     <meta property="og:image" content="__SITE_ORIGIN__/og-logo.jpg" />
     <meta property="og:image:secure_url" content="__SITE_ORIGIN__/og-logo.jpg" />
     <meta property="og:image:type" content="image/jpeg" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="Water Chaste logo" />
+    <meta property="og:image:alt" content="WaterMarket logo" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Water Chaste Admin" />
-    <meta name="twitter:description" content="Water Chaste store admin for orders, delivery, customers, and alerts." />
+    <meta name="twitter:title" content="WaterMarket Admin" />
+    <meta name="twitter:description" content="WaterMarket store admin for orders, delivery, customers, and alerts." />
     <meta name="twitter:image" content="__SITE_ORIGIN__/og-logo.jpg" />
-    <meta name="twitter:image:alt" content="Water Chaste logo" />
+    <meta name="twitter:image:alt" content="WaterMarket logo" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -40,7 +42,7 @@
       media="print"
       onload="this.media='all'"
     />
-    <title>Water Chaste Admin</title>
+    <title>WaterMarket</title>
   </head>
   <body>
     <div id="root"></div>

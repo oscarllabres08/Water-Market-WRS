@@ -57,7 +57,7 @@ export function StaffPage() {
         }))
       );
       if (qErr.message.includes('owner_list_workspace_staff')) {
-        setError('Staff list loaded without email. Run supabase/water-chaste.sql once in Supabase.');
+        setError('Staff list loaded without email. Run supabase/migrations/0001_wrs_baseline.sql once in Supabase.');
       }
     }
     setLoading(false);
@@ -126,8 +126,8 @@ export function StaffPage() {
   if (!isStoreOwner) {
     return (
       <PageHeader
-        title="Staff account approval"
-        description="Only the master admin can approve or reject accounts."
+        title="Riders"
+        description="Only the master admin can approve or reject rider accounts."
       />
     );
   }
@@ -135,8 +135,8 @@ export function StaffPage() {
   return (
     <div className="staff-page">
       <PageHeader
-        title="Staff account approval"
-        description="Approve or reject new accounts from the admin site and the Rider app. They cannot sign in until you approve them."
+        title="Riders"
+        description="Approve or reject rider accounts. They cannot sign in until you approve them."
       />
       {error ? <p className="error-text">{error}</p> : null}
 

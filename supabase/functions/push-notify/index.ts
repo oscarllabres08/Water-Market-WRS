@@ -6,7 +6,7 @@
 // - SB_SERVICE_ROLE_KEY  (Supabase service role key)
 // - PUSH_WEBHOOK_SECRET (must match `system_settings.push_webhook_secret`)
 // - FCM_SERVICE_ACCOUNT_JSON  (Firebase service account JSON string)
-// - FCM_PROJECT_ID            (Water Chaste Firebase project id — not the previous client's project)
+// - FCM_PROJECT_ID            (WaterMarket Firebase project id — not the previous client's project)
 //
 // Deploy:
 //   supabase functions deploy push-notify
@@ -246,7 +246,7 @@ async function sendFcmMessage({
   collapseTag: string;
 }) {
   const url = `https://fcm.googleapis.com/v1/projects/${encodeURIComponent(fcmProjectId)}/messages:send`;
-  const visibleTitle = title.trim() || "Water Chaste";
+  const visibleTitle = title.trim() || "WaterMarket";
   const visibleBody = body.trim();
 
   // The phone draws this itself when the screen is off or the app is closed.
