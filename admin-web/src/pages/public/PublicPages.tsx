@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent }
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 
 import { money, publicWrsAssetUrl } from '../../lib/format';
+import { applyDocumentPreview, previewForPath } from '../../lib/linkPreview';
 import { supabase } from '../../lib/supabase';
 
 const SERVICES = [
@@ -149,6 +150,7 @@ export function PublicLayout() {
   useEffect(() => {
     setOpen(false);
     setMenu(false);
+    applyDocumentPreview(previewForPath(location.pathname));
   }, [location.pathname]);
 
   useEffect(() => {

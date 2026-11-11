@@ -1,5 +1,74 @@
 const PRIVATE_PATH = /^\/(wrs-management|laundry-management|overall-sales|auth)(\/|$)/;
 
+const LINK_PREVIEWS = {
+  '/': {
+    title: 'WaterMarket',
+    description: 'Fresh Solutions. Everyday. Water refilling, ice cubes, and laundry in Kalibo, Aklan.',
+    image: '/og-home.jpg',
+    alt: 'WaterMarket station and delivery tricycle in Andagao, Kalibo',
+  },
+  '/about': {
+    title: 'About WaterMarket',
+    description: 'Water refilling, ice, and laundry from our station on Ilang-Ilang Road, Andagao, Kalibo.',
+    image: '/og-home.jpg',
+    alt: 'WaterMarket station and delivery tricycle in Andagao, Kalibo',
+  },
+  '/contact': {
+    title: 'Contact WaterMarket',
+    description: 'Visit Ilang-Ilang Road, Andagao, Kalibo, or call 0920-627-1104. We are here to help.',
+    image: '/og-home.jpg',
+    alt: 'WaterMarket station and delivery tricycle in Andagao, Kalibo',
+  },
+  '/water-refilling': {
+    title: 'Water Refilling | WaterMarket',
+    description: 'Purified drinking water with delivery from WaterMarket in Kalibo, Aklan.',
+    image: '/og-water.jpg',
+    alt: 'WaterMarket delivery truck loaded with water containers',
+  },
+  '/ice-cubes': {
+    title: 'Ice Cubes | WaterMarket',
+    description: 'Pure, clean ice cubes for homes, stores, and events. Order from WaterMarket in Kalibo.',
+    image: '/og-ice.jpg',
+    alt: 'WaterMarket ice delivery fleet at the Kalibo station',
+  },
+  '/laundry': {
+    title: 'Laundry Service | WaterMarket',
+    description: 'Wash, dry, fold, and delivery. Book laundry with WaterMarket in Kalibo, Aklan.',
+    image: '/og-laundry.jpg',
+    alt: 'WaterMarket logo',
+  },
+};
+
+function escapeAttr(value) {
+  return String(value).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+}
+
+function setMeta(html, key, content) {
+  const pattern = new RegExp(`(<meta\\s+(?:name|property)="${key}"\\s+content=")[^"]*(")`, 'i');
+  return html.replace(pattern, `$1${escapeAttr(content)}$2`);
+}
+
+export function applyLinkPreview(html, requestUrl) {
+  const origin = requestUrl.origin.replace(/\/$/, '');
+  const path = requestUrl.pathname.replace(/\/+$/, '') || '/';
+  const preview = LINK_PREVIEWS[path] || LINK_PREVIEWS['/'];
+  const pageUrl = `${origin}${path === '/' ? '/' : path}`;
+  const image = `${origin}${preview.image}`;
+  let next = html.replace(/<title>[^<]*<\/title>/i, `<title>${escapeAttr(preview.title)}</title>`);
+  next = setMeta(next, 'description', preview.description);
+  next = setMeta(next, 'og:title', preview.title);
+  next = setMeta(next, 'og:description', preview.description);
+  next = setMeta(next, 'og:url', pageUrl);
+  next = setMeta(next, 'og:image', image);
+  next = setMeta(next, 'og:image:secure_url', image);
+  next = setMeta(next, 'og:image:alt', preview.alt);
+  next = setMeta(next, 'twitter:title', preview.title);
+  next = setMeta(next, 'twitter:description', preview.description);
+  next = setMeta(next, 'twitter:image', image);
+  next = setMeta(next, 'twitter:image:alt', preview.alt);
+  return next;
+}
+
 const CONTENT_SECURITY_POLICY = [
   "default-src 'self'",
   "base-uri 'self'",
@@ -41,6 +110,7 @@ export default async function middleware(request) {
   if (html.includes('__SITE_ORIGIN__')) {
     html = html.replaceAll('__SITE_ORIGIN__', origin);
   }
+  html = applyLinkPreview(html, url);
 
   const headers = new Headers(response.headers);
   // fetch() already decoded the file. Leaving content-encoding makes the browser fail with ERR_CONTENT_DECODING_FAILED.
