@@ -2,7 +2,7 @@ export type AuthInputCheck = { ok: true; value: string } | { ok: false; error: s
 
 const EMAIL_MAX = 254;
 const PASSWORD_MAX = 128;
-const PASSWORD_MIN = 6;
+const PASSWORD_MIN = 8;
 
 const EMAIL_CHAR_FILTER = /[^a-zA-Z0-9@._+\-]/g;
 const CONTROL_CHARS = /[\x00-\x1F\x7F]/g;

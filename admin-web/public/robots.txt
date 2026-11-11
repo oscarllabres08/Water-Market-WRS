@@ -1,0 +1,18 @@
+User-agent: *
+Allow: /
+
+Disallow: /wrs-management
+Disallow: /laundry-management
+Disallow: /overall-sales
+Disallow: /auth
+Disallow: /pos
+Disallow: /inventory
+Disallow: /containers
+Disallow: /loyalty
+Disallow: /sales
+Disallow: /analytics
+Disallow: /customers
+Disallow: /expenses
+Disallow: /staff
+Disallow: /ewallet
+Disallow: /settings

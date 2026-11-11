@@ -119,7 +119,7 @@ export default function SignInScreen() {
             Seller Login
           </Text>
           <Text variant="muted" style={{ marginTop: 4 }}>
-            Field app for orders, delivery, customers, and alerts — synced with Admin & Customer apps.
+            The master admin and approved riders sign in here with their WRS account.
           </Text>
 
           <View style={{ marginTop: theme.spacing.md, gap: theme.spacing.sm }}>

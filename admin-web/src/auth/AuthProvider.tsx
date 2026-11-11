@@ -72,6 +72,8 @@ type AuthContextValue = {
 
   signOut: () => Promise<void>;
 
+  signOutWithNotice: (message: string) => Promise<void>;
+
 };
 
 
@@ -162,6 +164,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 
       if (!row || row.role !== 'seller') {
+
+        const channel = String(
+          (session?.user?.user_metadata as { signup_channel?: string } | undefined)?.signup_channel ?? ''
+        );
+
+        // Customer and rider accounts must not be turned into staff just by opening a portal login.
+        if (channel !== 'admin') {
+
+          setGateMessage('This account cannot access the management portal.');
+
+          await supabase.auth.signOut();
+
+          setProfile(null);
+          profileReadyFor.current = null;
+
+          return;
+
+        }
 
         const alreadyTried = attemptedAutoRegisterRef.current === uid;
 
@@ -413,6 +433,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       signOut: async () => {
 
+        profileReadyFor.current = null;
+        await supabase.auth.signOut();
+
+        setProfile(null);
+
+      },
+
+      signOutWithNotice: async (message: string) => {
+
+        setGateMessage(message);
         profileReadyFor.current = null;
         await supabase.auth.signOut();
 

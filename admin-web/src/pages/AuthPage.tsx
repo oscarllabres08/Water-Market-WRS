@@ -10,6 +10,7 @@ import {
   sanitizeAuthPassword,
   sanitizeAuthPasswordSignup,
 } from '../lib/authInputSecurity';
+import { clearLoginFailures, lockoutMessage, loginLockedUntil, publicAuthError, recordLoginFailure } from '../lib/loginThrottle';
 import { supabase } from '../lib/supabase';
 
 function FeatureIcon({ name }: { name: 'drop' | 'box' | 'people' }) {
@@ -82,9 +83,14 @@ export function AuthPage({ portal = 'wrs' }: { portal?: Portal }) {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
+  const canRegister = portal === 'wrs';
+  const activeMode = canRegister ? mode : 'signin';
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [trap, setTrap] = useState('');
+  const [lockedUntil, setLockedUntil] = useState(() => loginLockedUntil());
+  const locked = lockedUntil > Date.now();
 
   useEffect(() => {
     const root = document.documentElement;
@@ -101,7 +107,14 @@ export function AuthPage({ portal = 'wrs' }: { portal?: Portal }) {
     };
   }, []);
 
+  useEffect(() => {
+    if (!locked) return;
+    const timer = window.setTimeout(() => setLockedUntil(0), lockedUntil - Date.now());
+    return () => window.clearTimeout(timer);
+  }, [locked, lockedUntil]);
+
   const allowed = portal === 'owner' ? access.owner : portal === 'laundry' ? access.laundry : access.wrs;
+  const masterOnly = Boolean(user && !loading && !profileLoading && !access.loading && !allowed && portal !== 'wrs');
   if (!loading && !profileLoading && !access.loading && user && allowed) {
     return <Navigate to={copy.home} replace />;
   }
@@ -111,17 +124,29 @@ export function AuthPage({ portal = 'wrs' }: { portal?: Portal }) {
     setError(null);
     setNotice(null);
     clearGateMessage();
+    if (trap.trim()) {
+      const until = recordLoginFailure();
+      setLockedUntil(until);
+      setError(until ? lockoutMessage(until) : 'Could not sign in. Check your email and password.');
+      return;
+    }
+    const untilNow = loginLockedUntil();
+    if (untilNow) {
+      setLockedUntil(untilNow);
+      setError(lockoutMessage(untilNow));
+      return;
+    }
     setBusy(true);
     try {
       const creds = parseAuthCredentials(email, password, {
-        mode: mode === 'signin' ? 'login' : 'signup',
-        strictCommandFilter: mode === 'signup',
+        mode: activeMode === 'signin' ? 'login' : 'signup',
+        strictCommandFilter: activeMode === 'signup',
       });
       if (!creds.ok) {
         setError(creds.error);
         return;
       }
-      if (mode === 'signup') {
+      if (activeMode === 'signup') {
         if (!name.trim()) {
           setError('Please enter your full name.');
           return;
@@ -132,12 +157,13 @@ export function AuthPage({ portal = 'wrs' }: { portal?: Portal }) {
           return;
         }
       }
-      if (mode === 'signin') {
+      if (activeMode === 'signin') {
         const { error: err } = await supabase.auth.signInWithPassword({
           email: creds.email,
           password: creds.password,
         });
         if (err) throw err;
+        clearLoginFailures();
       } else {
         const { data, error: err } = await supabase.auth.signUp({
           email: creds.email,
@@ -151,6 +177,7 @@ export function AuthPage({ portal = 'wrs' }: { portal?: Portal }) {
           },
         });
         if (err) throw err;
+        clearLoginFailures();
         if (!data.session) {
           setNotice(
             'Account created. Confirm your email if asked, then sign in. If a master admin already exists, they must approve you on Staff account approval first.'
@@ -182,7 +209,9 @@ export function AuthPage({ portal = 'wrs' }: { portal?: Portal }) {
         setConfirmPassword('');
       }
     } catch (ex) {
-      setError(ex instanceof Error ? ex.message : 'Authentication failed');
+      const until = recordLoginFailure();
+      setLockedUntil(until);
+      setError(until ? lockoutMessage(until) : publicAuthError(ex, activeMode));
     } finally {
       setBusy(false);
     }
@@ -228,15 +257,27 @@ export function AuthPage({ portal = 'wrs' }: { portal?: Portal }) {
 
       <main className="auth-panel">
         <div className="auth-card">
-          <h2 className="auth-panel-title">{mode === 'signin' ? 'Sign in' : 'Create account'}</h2>
+          <h2 className="auth-panel-title">{activeMode === 'signin' ? 'Sign in' : 'Create account'}</h2>
           <p className="auth-panel-hint">
-            The first account becomes the master admin. Later accounts stay pending until that admin approves them.
+            Staff sign-in only. A new account cannot open the portal until the master admin approves it.
           </p>
           {notice ? <p className="success-text">{notice}</p> : null}
           {blocked ? <p className="error-text">{blocked}</p> : null}
           {error ? <p className="error-text">{error}</p> : null}
           <form className="auth-form" onSubmit={(e) => void submit(e)}>
-            {mode === 'signup' ? (
+            <div className="auth-trap" aria-hidden="true">
+              <label htmlFor="company-website">Website</label>
+              <input
+                id="company-website"
+                name="company_website"
+                type="text"
+                tabIndex={-1}
+                autoComplete="off"
+                value={trap}
+                onChange={(e) => setTrap(e.target.value)}
+              />
+            </div>
+            {activeMode === 'signup' ? (
               <>
                 <div className="field">
                   <label htmlFor="full-name">Full name</label>
@@ -277,28 +318,30 @@ export function AuthPage({ portal = 'wrs' }: { portal?: Portal }) {
                 required
                 maxLength={254}
                 spellCheck={false}
+                disabled={locked}
               />
             </div>
             <div className="field">
               <label htmlFor="password">Password</label>
               <PasswordInput
                 id="password"
-                autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
-                placeholder={mode === 'signin' ? 'Enter your password' : 'Create a password (min. 6 characters)'}
+                autoComplete={activeMode === 'signin' ? 'current-password' : 'new-password'}
+                placeholder={activeMode === 'signin' ? 'Enter your password' : 'Create a password (min. 8 characters)'}
                 value={password}
                 onChange={(e) =>
                   setPassword(
-                    mode === 'signup'
+                    activeMode === 'signup'
                       ? sanitizeAuthPasswordSignup(e.target.value, true)
                       : sanitizeAuthPassword(e.target.value)
                   )
                 }
                 required
-                minLength={6}
+                minLength={activeMode === 'signup' ? 8 : 6}
                 maxLength={128}
+                disabled={locked}
               />
             </div>
-            {mode === 'signup' ? (
+            {activeMode === 'signup' ? (
               <div className="field">
                 <label htmlFor="confirm-password">Confirm password</label>
                 <PasswordInput
@@ -308,17 +351,21 @@ export function AuthPage({ portal = 'wrs' }: { portal?: Portal }) {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(sanitizeAuthPasswordSignup(e.target.value, true))}
                   required
-                  minLength={6}
+                  minLength={8}
                   maxLength={128}
+                  disabled={locked}
                 />
               </div>
             ) : null}
-            <button type="submit" className="btn btn-primary btn-water auth-submit-btn" disabled={busy}>
-              {busy ? 'Please wait…' : mode === 'signin' ? 'Sign in' : 'Create account'}
+            <button type="submit" className="btn btn-primary btn-water auth-submit-btn" disabled={busy || locked}>
+              {busy ? 'Please wait…' : activeMode === 'signin' ? 'Sign in' : 'Create account'}
             </button>
           </form>
+          {masterOnly ? (
+            <p className="auth-panel-footer">Only the master admin can sign in here. Use the first account registered on WRS Management.</p>
+          ) : null}
           <p className="auth-panel-footer">
-            {mode === 'signin' ? (
+            {canRegister && activeMode === 'signin' ? (
               <>
                 Need an account?{' '}
                 <button
@@ -332,8 +379,9 @@ export function AuthPage({ portal = 'wrs' }: { portal?: Portal }) {
                 >
                   Register
                 </button>
+                <span> New accounts stay closed until the master admin approves them.</span>
               </>
-            ) : (
+            ) : canRegister ? (
               <>
                 Already have an account?{' '}
                 <button
@@ -348,6 +396,8 @@ export function AuthPage({ portal = 'wrs' }: { portal?: Portal }) {
                   Sign in
                 </button>
               </>
+            ) : (
+              <>Sign in with the master admin account from WRS Management.</>
             )}
           </p>
         </div>

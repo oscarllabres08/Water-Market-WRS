@@ -1,7 +1,8 @@
-import { useRef, type ReactNode } from 'react';
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { useEffect, useRef, type ReactNode } from 'react';
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 
 import { useAuth } from './auth/AuthProvider';
+import { IDLE_LIMIT_MS, isPortalPath, isStaffArea } from './auth/portalGuard';
 import { useBusinessAccess } from './auth/useBusinessAccess';
 import { AdminLayout } from './layout/AdminLayout';
 import { AuthPage } from './pages/AuthPage';
@@ -102,8 +103,68 @@ function ProtectedOwner() {
   );
 }
 
+function StaffShortcut({ to }: { to: string }) {
+  const { user, loading, profileLoading } = useAuth();
+  const access = useBusinessAccess();
+  const ready = !loading && !profileLoading && (!user || !access.loading);
+  if (!ready) {
+    return (
+      <div className="auth-loading">
+        <p style={{ fontWeight: 700 }}>Loading session…</p>
+      </div>
+    );
+  }
+  if (user && access.wrs) return <Navigate to={to} replace />;
+  return <Navigate to="/" replace />;
+}
+
+function PortalHead() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    let meta = document.querySelector('meta[name="robots"]');
+    if (!meta) {
+      meta = document.createElement('meta');
+      meta.setAttribute('name', 'robots');
+      document.head.appendChild(meta);
+    }
+    meta.setAttribute('content', isPortalPath(pathname) ? 'noindex, nofollow' : 'index, follow');
+  }, [pathname]);
+  return null;
+}
+
+function AdminSessionGuard() {
+  const { user, signOutWithNotice } = useAuth();
+  const { pathname } = useLocation();
+  const signOutRef = useRef(signOutWithNotice);
+  signOutRef.current = signOutWithNotice;
+  const onDuty = Boolean(user) && isStaffArea(pathname);
+
+  useEffect(() => {
+    if (!onDuty) return;
+    let timer = 0;
+    const arm = () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        void signOutRef.current('You were signed out after a period of inactivity. Sign in again to continue.');
+      }, IDLE_LIMIT_MS);
+    };
+    arm();
+    const events = ['pointerdown', 'keydown', 'scroll'] as const;
+    for (const event of events) window.addEventListener(event, arm, { passive: true });
+    return () => {
+      window.clearTimeout(timer);
+      for (const event of events) window.removeEventListener(event, arm);
+    };
+  }, [onDuty]);
+
+  return null;
+}
+
 export default function App() {
   return (
+    <>
+    <PortalHead />
+    <AdminSessionGuard />
     <Routes>
       <Route element={<PublicLayout />}>
         <Route index element={<HomePage />} />
@@ -117,7 +178,7 @@ export default function App() {
       <Route path="wrs-management/login" element={<AuthPage portal="wrs" />} />
       <Route path="laundry-management/login" element={<AuthPage portal="laundry" />} />
       <Route path="overall-sales/login" element={<AuthPage portal="owner" />} />
-      <Route path="auth" element={<Navigate to="/wrs-management/login" replace />} />
+      <Route path="auth" element={<Navigate to="/" replace />} />
 
       <Route path="wrs-management" element={<ProtectedWrs />}>
         <Route index element={<DashboardPage />} />
@@ -159,18 +220,19 @@ export default function App() {
         <Route path="settings" element={<OwnerSettingsPage />} />
       </Route>
 
-      <Route path="pos" element={<Navigate to="/wrs-management/pos" replace />} />
-      <Route path="inventory" element={<Navigate to="/wrs-management/inventory" replace />} />
-      <Route path="containers" element={<Navigate to="/wrs-management/containers" replace />} />
-      <Route path="loyalty" element={<Navigate to="/wrs-management/loyalty" replace />} />
-      <Route path="sales" element={<Navigate to="/wrs-management/sales" replace />} />
-      <Route path="analytics" element={<Navigate to="/wrs-management/sales" replace />} />
-      <Route path="customers" element={<Navigate to="/wrs-management/customers" replace />} />
-      <Route path="expenses" element={<Navigate to="/wrs-management/expenses" replace />} />
-      <Route path="staff" element={<Navigate to="/wrs-management/staff" replace />} />
-      <Route path="ewallet" element={<Navigate to="/wrs-management/ewallet" replace />} />
-      <Route path="settings" element={<Navigate to="/wrs-management/settings" replace />} />
+      <Route path="pos" element={<StaffShortcut to="/wrs-management/pos" />} />
+      <Route path="inventory" element={<StaffShortcut to="/wrs-management/inventory" />} />
+      <Route path="containers" element={<StaffShortcut to="/wrs-management/containers" />} />
+      <Route path="loyalty" element={<StaffShortcut to="/wrs-management/loyalty" />} />
+      <Route path="sales" element={<StaffShortcut to="/wrs-management/sales" />} />
+      <Route path="analytics" element={<StaffShortcut to="/wrs-management/sales" />} />
+      <Route path="customers" element={<StaffShortcut to="/wrs-management/customers" />} />
+      <Route path="expenses" element={<StaffShortcut to="/wrs-management/expenses" />} />
+      <Route path="staff" element={<StaffShortcut to="/wrs-management/staff" />} />
+      <Route path="ewallet" element={<StaffShortcut to="/wrs-management/ewallet" />} />
+      <Route path="settings" element={<StaffShortcut to="/wrs-management/settings" />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </>
   );
 }
