@@ -1105,19 +1105,24 @@
 }
 
 .wm-product-photo {
-  height: 120px;
+  width: 100%;
+  aspect-ratio: 1 / 1;
   display: grid;
   place-items: center;
   margin-bottom: 8px;
   border-radius: 16px;
-  background: linear-gradient(180deg, #f4fbff, #d9eeff);
+  background: #fff;
   overflow: hidden;
 }
 
 .wm-product-photo img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  object-position: center;
+  padding: 8px;
+  box-sizing: border-box;
+  background: #fff;
 }
 
 .wm-icebag {
@@ -1412,15 +1417,27 @@
 .wm-ice-card h3 { margin: 8px 0 2px; color: #12357f; font-size: 15px; }
 
 .wm-ice-card-photo {
-  height: 110px;
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
   display: grid;
   place-items: center;
   border-radius: 14px;
   overflow: hidden;
-  background: linear-gradient(180deg, #f7fcff, #d7eeff);
+  background: #fff;
 }
 
-.wm-ice-card-photo img { width: 100%; height: 100%; object-fit: cover; }
+.wm-ice-card-photo img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
+  padding: 12px;
+  box-sizing: border-box;
+  background: #fff;
+}
 
 .wm-ice-book {
   position: sticky;
@@ -1663,10 +1680,44 @@
   .wm-offer-row,
   .wm-principles,
   .wm-ice-layout,
-  .wm-ice-hero,
+  .wm-ice-hero { grid-template-columns: 1fr; }
   .wm-ice-perks,
   .wm-ice-grid,
-  .wm-ly-grid { grid-template-columns: 1fr; }
+  .wm-ly-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .wm-ice-grid,
+  .wm-ly-grid { gap: 10px; }
+  .wm-ice-card {
+    padding: 8px;
+    border-radius: 14px;
+  }
+  .wm-ice-card h3 { font-size: 13px; }
+  .wm-ice-card .wm-btn {
+    margin-top: 8px;
+    padding: 8px 10px;
+    font-size: 13px;
+  }
+  .wm-ly-photo { height: 88px; }
+  .wm-ly-price { font-size: 12px; padding: 4px 8px; }
+  .wm-ice-hero {
+    min-height: 0;
+    padding: 16px 14px 12px;
+    border-radius: 20px;
+    gap: 4px;
+  }
+  .wm-ice-hero h1 { font-size: 2rem; }
+  .wm-ice-sub { font-size: 1.05rem; }
+  .wm-ice-actions .wm-btn { margin-top: 10px; }
+  .wm-ice-art,
+  .wm-ly-art { min-height: 128px; }
+  .wm-ice-cube-a { width: 78px; height: 66px; left: 8px; bottom: 8px; }
+  .wm-ice-cube-b { width: 68px; height: 58px; left: 62px; bottom: 28px; }
+  .wm-ice-cube-c { width: 56px; height: 48px; right: 8px; bottom: 8px; }
+  .wm-ly-basket { width: 96px; height: 52px; bottom: 10px; }
+  .wm-ly-towel-a { width: 78px; bottom: 48px; }
+  .wm-ly-towel-b { width: 70px; bottom: 62px; }
+  .wm-ly-towel-c { width: 84px; bottom: 34px; }
+  .wm-ly-machine { width: 84px; height: 96px; bottom: 8px; }
+  .wm-ly-machine::before { width: 46px; height: 46px; left: 14px; top: 14px; border-width: 6px; }
   .wm-trust {
     grid-template-columns: 1fr 1fr;
     gap: 22px 18px;
@@ -1677,7 +1728,7 @@
   .wm-trust strong { font-size: 13px; line-height: 1.3; }
   .wm-trust small { font-size: 12px; line-height: 1.4; margin-top: 3px; }
   .wm-ice-book { position: static; }
-  .wm-ice-script { font-size: 32px; }
+  .wm-ice-script { font-size: 24px; }
   .wm-gallery-grid { grid-template-columns: 1fr; }
   .wm-hero { padding: 24px; }
   .wm-hero-home { padding: 8px 0 0; }
@@ -1712,13 +1763,15 @@
 }
 
 .wm-public.is-dark {
-  --wm-navy: #e8f2ff;
-  --wm-blue: #8ec4ff;
-  --wm-ink: #e8f2ff;
-  --wm-muted: #b7c9de;
+  --wm-navy: #f4f8ff;
+  --wm-blue: #9ecbff;
+  --wm-ink: #f4f8ff;
+  --wm-muted: #d5e4f6;
   background:
-    radial-gradient(circle at 12% 8%, rgba(40, 90, 160, 0.35), transparent 28%),
-    linear-gradient(180deg, #0c1730 0%, #12284a 100%);
+    radial-gradient(ellipse 90% 55% at 0% -8%, rgba(47, 147, 255, 0.48), transparent 52%),
+    radial-gradient(ellipse 70% 48% at 100% 0%, rgba(0, 210, 230, 0.24), transparent 46%),
+    radial-gradient(ellipse 80% 50% at 78% 100%, rgba(92, 78, 230, 0.32), transparent 52%),
+    linear-gradient(165deg, #071018 0%, #0c1d3d 40%, #16386c 72%, #091426 100%);
   color: var(--wm-ink);
 }
 
@@ -2467,6 +2520,175 @@
   .wm-reveal-side {
     transform: translateY(24px);
   }
+}
+
+.wm-public.is-dark .wm-top {
+  background: linear-gradient(180deg, rgba(7, 16, 32, 0.94), rgba(14, 36, 74, 0.82));
+  border-bottom-color: rgba(158, 203, 255, 0.2);
+  backdrop-filter: blur(14px);
+}
+
+.wm-public.is-dark .wm-nav {
+  background: transparent;
+  box-shadow: none;
+}
+
+@media (max-width: 900px) {
+  .wm-public.is-dark .wm-nav {
+    background: linear-gradient(180deg, #143060, #0c1e3c);
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.4);
+  }
+}
+
+.wm-public.is-dark .wm-burger {
+  background: #1a4580;
+}
+
+.wm-public.is-dark .wm-burger span {
+  background: #f7fbff;
+}
+
+.wm-public.is-dark .wm-nav > a,
+.wm-public.is-dark .wm-drop > button,
+.wm-public.is-dark .wm-drop-menu a {
+  color: #f7fbff;
+}
+
+.wm-public.is-dark .wm-nav > a.active,
+.wm-public.is-dark .wm-drop.is-current > button,
+.wm-public.is-dark .wm-drop > button.active {
+  color: #b9dcff;
+}
+
+.wm-public.is-dark .wm-nav > a:hover,
+.wm-public.is-dark .wm-drop > button:hover,
+.wm-public.is-dark .wm-drop-menu a:hover,
+.wm-public.is-dark .wm-drop-menu a:focus-visible {
+  background: rgba(90, 160, 255, 0.22);
+  color: #ffffff;
+}
+
+.wm-public.is-dark .wm-hero:not(.wm-hero-home),
+.wm-public.is-dark .wm-ice-hero {
+  background:
+    radial-gradient(circle at 86% 16%, rgba(140, 200, 255, 0.42), transparent 42%),
+    linear-gradient(115deg, #10284a 0%, #1a4a86 54%, #2a6ec4 100%);
+  color: #f7fbff;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+}
+
+.wm-public.is-dark .wm-service,
+.wm-public.is-dark .wm-trust,
+.wm-public.is-dark .wm-offer,
+.wm-public.is-dark .wm-app,
+.wm-public.is-dark .wm-product,
+.wm-public.is-dark .wm-book,
+.wm-public.is-dark .wm-ice-perks,
+.wm-public.is-dark .wm-ice-card,
+.wm-public.is-dark .wm-ice-book,
+.wm-public.is-dark .wm-contact-details,
+.wm-public.is-dark .wm-contact-extra,
+.wm-public.is-dark .wm-principles,
+.wm-public.is-dark .wm-drop-menu,
+.wm-public.is-dark .wm-contact-answers {
+  background: linear-gradient(160deg, rgba(26, 62, 118, 0.9), rgba(10, 28, 58, 0.94));
+  border: 1px solid rgba(170, 210, 255, 0.16);
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.24);
+  color: #f7fbff;
+}
+
+.wm-public.is-dark .wm-hero:not(.wm-hero-home) h1,
+.wm-public.is-dark .wm-ice-hero h1,
+.wm-public.is-dark .wm-ice-main h2,
+.wm-public.is-dark .wm-ice-book h2,
+.wm-public.is-dark .wm-contact-details h2,
+.wm-public.is-dark .wm-contact-extra h2,
+.wm-public.is-dark .wm-contact-form h2,
+.wm-public.is-dark .wm-contact-card strong,
+.wm-public.is-dark .wm-contact-map figcaption strong,
+.wm-public.is-dark .wm-contact-answers summary,
+.wm-public.is-dark .wm-ice-card h3,
+.wm-public.is-dark .wm-ice-perks strong,
+.wm-public.is-dark .wm-ice-qty,
+.wm-public.is-dark .wm-service strong,
+.wm-public.is-dark .wm-app strong,
+.wm-public.is-dark .wm-offer strong,
+.wm-public.is-dark .wm-trust strong,
+.wm-public.is-dark .wm-principles strong {
+  color: #f7fbff;
+}
+
+.wm-public.is-dark .wm-hero:not(.wm-hero-home) h1 span,
+.wm-public.is-dark .wm-ice-sub,
+.wm-public.is-dark .wm-kicker,
+.wm-public.is-dark .wm-facts strong,
+.wm-public.is-dark .wm-contact-card svg,
+.wm-public.is-dark .wm-contact-map a,
+.wm-public.is-dark .wm-service-go {
+  color: #b9dcff;
+}
+
+.wm-public.is-dark .wm-lead,
+.wm-public.is-dark .wm-service small,
+.wm-public.is-dark .wm-app small,
+.wm-public.is-dark .wm-trust small,
+.wm-public.is-dark .wm-principles small,
+.wm-public.is-dark .wm-offer small,
+.wm-public.is-dark .wm-ice-perks small,
+.wm-public.is-dark .wm-ice-card small,
+.wm-public.is-dark .wm-ice-intro,
+.wm-public.is-dark .wm-ice-book p,
+.wm-public.is-dark .wm-ice-book label,
+.wm-public.is-dark .wm-ice-or,
+.wm-public.is-dark .wm-ice-secure,
+.wm-public.is-dark .wm-contact-card a,
+.wm-public.is-dark .wm-contact-card span,
+.wm-public.is-dark .wm-contact-card small,
+.wm-public.is-dark .wm-contact-extra p,
+.wm-public.is-dark .wm-contact-map figcaption span,
+.wm-public.is-dark .wm-contact-answers p,
+.wm-public.is-dark .wm-panel-head p,
+.wm-public.is-dark .wm-book label,
+.wm-public.is-dark .wm-story p,
+.wm-public.is-dark .wm-about-band p,
+.wm-public.is-dark .wm-field {
+  color: #d7e6f7;
+}
+
+.wm-public.is-dark .wm-contact-card,
+.wm-public.is-dark .wm-contact-map figcaption,
+.wm-public.is-dark .wm-field,
+.wm-public.is-dark .wm-ice-book input,
+.wm-public.is-dark .wm-ice-book select,
+.wm-public.is-dark .wm-ice-book textarea,
+.wm-public.is-dark .wm-book input,
+.wm-public.is-dark .wm-book select {
+  background: #0d2244;
+  color: #f7fbff;
+  border-color: rgba(158, 203, 255, 0.28);
+}
+
+.wm-public.is-dark .wm-contact-form .wm-field input,
+.wm-public.is-dark .wm-contact-form .wm-field select,
+.wm-public.is-dark .wm-contact-form .wm-field textarea {
+  color: #f7fbff;
+}
+
+.wm-public.is-dark input::placeholder,
+.wm-public.is-dark textarea::placeholder {
+  color: #9eb6d4;
+}
+
+.wm-public.is-dark .wm-mini,
+.wm-public.is-dark .wm-service-icon,
+.wm-public.is-dark .wm-offer-badge {
+  color: #0d5ed6;
+}
+
+.wm-public.is-dark .wm-pin {
+  background: #e8f3ff;
+  color: #0d5ed6;
+  border: 1px solid #9ec8f5;
 }
 
 @media (prefers-reduced-motion: reduce) {

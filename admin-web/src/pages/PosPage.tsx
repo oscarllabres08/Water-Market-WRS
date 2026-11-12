@@ -509,12 +509,33 @@ export function PosPage() {
               const inOrder = cart.find((line) => line.productId === p.id)?.quantity ?? 0;
               const justAdded = addedFlashId === p.id;
               return (
-                <article key={p.id} className={`pos-product-card${justAdded ? ' pos-product-card--added' : ''}`}>
+                <article
+                  key={p.id}
+                  className={`pos-product-card${justAdded ? ' pos-product-card--added' : ''}`}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Add ${p.name} to the order`}
+                  onClick={() => addProduct(p)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      addProduct(p);
+                    }
+                  }}
+                >
+                  <div className="pos-product-media">
+                    {img ? (
+                      <img src={img} alt="" />
+                    ) : (
+                      <span className={`pos-product-placeholder pos-product-glyph--${p.category}`} aria-hidden>
+                        {p.category === 'ice' ? <IceIcon /> : p.category === 'water' ? <DropIcon /> : <BoxIcon />}
+                      </span>
+                    )}
+                  </div>
                   <div className="pos-product-top">
                     <span className={`pos-product-glyph pos-product-glyph--${p.category}`} aria-hidden>
                       {p.category === 'ice' ? <IceIcon /> : p.category === 'water' ? <DropIcon /> : <BoxIcon />}
                     </span>
-                    {img ? <img className="pos-product-thumb" src={img} alt="" /> : null}
                     <span className={`pos-product-badge pos-product-badge--${p.category}`}>{categoryLabel(p.category)}</span>
                   </div>
                   <h3>{p.name}</h3>
@@ -522,9 +543,7 @@ export function PosPage() {
                   <p className={`pos-stock${isLowStock(p.stock_quantity) ? ' pos-stock--low' : ''}`}>
                     {tracksStock(p.category) && p.stock_quantity != null ? stockLabel(p.stock_quantity) : 'In stock'}
                   </p>
-                  <button type="button" className="pos-add-btn" onClick={() => addProduct(p)}>
-                    {inOrder > 0 ? `Added · ${inOrder}` : 'Add to cart'}
-                  </button>
+                  <span className="pos-add-btn">{inOrder > 0 ? `Added · ${inOrder}` : 'Add to cart'}</span>
                 </article>
               );
             })}
