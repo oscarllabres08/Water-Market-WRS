@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ComponentProps } from 'react';
-import { Image, Pressable, ScrollView, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, ScrollView, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 
+import { imageUploadPresets, prepareImageForUpload } from '../../../lib/prepareImageForUpload';
+import { readPreparedImageBytes } from '../../../lib/readPreparedImageBytes';
 import { supabase } from '../../../lib/supabase';
 import { useAuth } from '../../../providers/AuthProvider';
 import { Screen } from '../../../ui/components/Screen';
@@ -19,6 +22,8 @@ import { LogoutConfirmModal } from '../../../ui/components/LogoutConfirmModal';
 import { SellerScreenHeader } from '../../../ui/components/SellerScreenHeader';
 
 type ProfileRow = {
+  display_name: string | null;
+  avatar_path: string | null;
   store_name: string | null;
   store_logo_url: string | null;
 };
@@ -31,19 +36,18 @@ export default function ProfileHomeScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [profile, setProfile] = useState<ProfileRow | null>(null);
-  const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [ownerStore, setOwnerStore] = useState<{ store_name: string | null; store_logo_url: string | null } | null>(null);
   const [logoutModalOpen, setLogoutModalOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [avatarPath, setAvatarPath] = useState<string | null>(null);
+  const [avatarStamp, setAvatarStamp] = useState(0);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
-  const displayLogoPath = sellerTeamRole === 'staff' && ownerStore?.store_logo_url ? ownerStore.store_logo_url : logoUrl;
-
-  const publicLogoUrl = useMemo(() => {
-    if (!displayLogoPath) return null;
-    if (displayLogoPath.startsWith('http')) return displayLogoPath;
-    const { data } = supabase.storage.from(BUCKET).getPublicUrl(displayLogoPath);
-    return data.publicUrl;
-  }, [displayLogoPath]);
+  const publicAvatarUrl = useMemo(() => {
+    if (!avatarPath) return null;
+    const base = avatarPath.startsWith('http') ? avatarPath : supabase.storage.from(BUCKET).getPublicUrl(avatarPath).data.publicUrl;
+    return avatarStamp ? `${base}?v=${avatarStamp}` : base;
+  }, [avatarPath, avatarStamp]);
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -52,7 +56,7 @@ export default function ProfileHomeScreen() {
     setLoading(true);
     const { data, error: pErr } = await supabase
       .from('profiles')
-      .select('store_name,store_logo_url')
+      .select('display_name,avatar_path,store_name,store_logo_url')
       .eq('user_id', userId)
       .single();
     if (pErr) {
@@ -63,7 +67,7 @@ export default function ProfileHomeScreen() {
     }
     const row = (data ?? null) as ProfileRow | null;
     setProfile(row);
-    setLogoUrl(row?.store_logo_url ?? null);
+    setAvatarPath(row?.avatar_path ?? null);
     setLoading(false);
   }, [user?.id]);
 
@@ -98,6 +102,51 @@ export default function ProfileHomeScreen() {
     };
   }, [businessId, sellerTeamRole]);
 
+  async function pickAvatar() {
+    if (!user || uploadingPhoto) return;
+    setError(null);
+    try {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        setError('Allow photo access to set your profile photo.');
+        return;
+      }
+      const res = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.85,
+      });
+      if (res.canceled) return;
+      const asset = res.assets?.[0];
+      if (!asset?.uri) return;
+
+      setUploadingPhoto(true);
+      const prepared = await prepareImageForUpload(asset.uri, imageUploadPresets.avatar);
+      const objectPath = `avatars/seller-${user.id}.jpg`;
+      const bytes = await readPreparedImageBytes(prepared);
+      const { error: upErr } = await supabase.storage.from(BUCKET).upload(objectPath, bytes, {
+        upsert: true,
+        contentType: prepared.contentType,
+        cacheControl: '60',
+      });
+      if (upErr) throw new Error(upErr.message);
+
+      const { error: profErr } = await supabase.from('profiles').update({ avatar_path: objectPath }).eq('user_id', user.id);
+      if (profErr) throw profErr;
+
+      setAvatarPath(objectPath);
+      setAvatarStamp(Date.now());
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not save the profile photo.');
+    } finally {
+      setUploadingPhoto(false);
+    }
+  }
+
+  const riderTitle = sellerTeamRole === 'staff' ? 'Rider' : (ownerStore?.store_name ?? profile?.store_name) || 'Rider';
+  const riderSubtitle = sellerTeamRole === 'staff' ? profile?.display_name?.trim() || 'Delivery rider' : user?.email ?? '';
+
   return (
     <Screen>
       <LogoutConfirmModal
@@ -130,7 +179,11 @@ export default function ProfileHomeScreen() {
           <Animated.View entering={FadeInDown.duration(220)} style={{ marginTop: theme.spacing.md, gap: theme.spacing.sm }}>
             <GradientCard>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                <View
+                <Pressable
+                  onPress={() => void pickAvatar()}
+                  disabled={uploadingPhoto}
+                  accessibilityRole="button"
+                  accessibilityLabel="Change profile photo"
                   style={{
                     width: 54,
                     height: 54,
@@ -143,14 +196,37 @@ export default function ProfileHomeScreen() {
                     overflow: 'hidden',
                   }}
                 >
-                  {publicLogoUrl ? <Image source={{ uri: publicLogoUrl }} style={{ width: 54, height: 54 }} /> : <Ionicons name="person" size={24} color="#FFFFFF" />}
-                </View>
+                  {publicAvatarUrl ? (
+                    <Image source={{ uri: publicAvatarUrl }} style={{ width: 54, height: 54 }} />
+                  ) : (
+                    <Ionicons name="person" size={24} color="#FFFFFF" />
+                  )}
+                  <View
+                    style={{
+                      position: 'absolute',
+                      right: 0,
+                      bottom: 0,
+                      width: 20,
+                      height: 20,
+                      borderRadius: 8,
+                      backgroundColor: 'rgba(7,20,46,0.72)',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    {uploadingPhoto ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : (
+                      <Ionicons name="camera" size={12} color="#FFFFFF" />
+                    )}
+                  </View>
+                </Pressable>
                 <View style={{ flex: 1 }}>
                   <Text variant="h2" weight="extrabold" style={{ color: '#FFFFFF' }}>
-                    {(ownerStore?.store_name ?? profile?.store_name) || 'Seller'}
+                    {riderTitle}
                   </Text>
                   <Text variant="muted" weight="semibold" style={{ color: 'rgba(255,255,255,0.85)', marginTop: 2 }}>
-                    {sellerTeamRole === 'staff' ? 'Member' : user?.email ?? ' '}
+                    {riderSubtitle}
                   </Text>
                 </View>
                 <View

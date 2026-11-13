@@ -324,23 +324,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setProfileLoading(false);
     }, 8000);
 
+    const applySession = (next: Session | null) => {
+      if (!mounted) return;
+      const uid = next?.user?.id ?? null;
+      setSession(next);
+      if (uid && profileReadyFor.current !== uid) setProfileLoading(true);
+      if (!uid) setProfileLoading(false);
+      setLoading(false);
+    };
+
     void supabase.auth
       .getSession()
       .then(({ data }) => {
-        if (!mounted) return;
-        setSession(data.session ?? null);
-        setLoading(false);
+        applySession(data.session ?? null);
       })
       .catch(() => {
         if (!mounted) return;
         setLoading(false);
+        setProfileLoading(false);
       });
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       window.setTimeout(() => {
-        if (!mounted) return;
-        setSession(nextSession ?? null);
-        setLoading(false);
+        applySession(nextSession ?? null);
       }, 0);
     });
 

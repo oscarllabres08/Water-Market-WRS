@@ -29,6 +29,7 @@ type OrderRow = {
   payment_settled: boolean | null;
   payment_settled_at?: string | null;
   payment_method: string | null;
+  order_source?: string | null;
   order_items: { product_name: string; unit_price: number; quantity: number; product_id?: string | null }[];
 };
 
@@ -366,7 +367,7 @@ async function fetchRange(businessId: string, from: Date, to: Date): Promise<{ o
     supabase
       .from('orders')
       .select(
-        'id,created_at,status,customer_name,payment_settled,payment_settled_at,payment_method,order_items(product_name,unit_price,quantity,product_id)'
+        'id,created_at,status,customer_name,payment_settled,payment_settled_at,payment_method,order_source,order_items(product_name,unit_price,quantity,product_id)'
       )
       .eq('seller_id', businessId)
       .or(rangeOr),
@@ -379,7 +380,7 @@ async function fetchRange(businessId: string, from: Date, to: Date): Promise<{ o
       .or(rangeOr),
   ]);
   return {
-    orders: (ordersRes.data ?? []) as OrderRow[],
+    orders: ((ordersRes.data ?? []) as OrderRow[]).filter((order) => order.order_source !== 'pos'),
     pos: (posRes.data ?? []) as PosRow[],
   };
 }

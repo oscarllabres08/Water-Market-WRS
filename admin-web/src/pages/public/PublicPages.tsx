@@ -327,7 +327,27 @@ function TrustIcon({ name }: { name: 'shield' | 'rider' | 'thumb' | 'support' })
   return <Icon name="rider" />;
 }
 
+const SERVICE_SLIDES = ['Water Refilling', 'Ice Cubes', 'Laundry'];
+
 export function HomePage() {
+  const scroller = useRef<HTMLDivElement>(null);
+  const [slide, setSlide] = useState(0);
+  const dragged = useRef(false);
+  const startX = useRef(0);
+
+  function syncSlide() {
+    const el = scroller.current;
+    if (!el || el.clientWidth < 1) return;
+    const next = Math.round(el.scrollLeft / el.clientWidth);
+    setSlide((current) => (current === next ? current : next));
+  }
+
+  function goToSlide(index: number) {
+    const el = scroller.current;
+    if (!el) return;
+    el.scrollTo({ left: index * el.clientWidth, behavior: 'smooth' });
+  }
+
   return (
     <main className="wm-home">
       <section className="wm-hero wm-hero-home">
@@ -398,7 +418,35 @@ export function HomePage() {
           <p className="wm-kicker">Our Services</p>
           <h2>Everything You Need, All in One Place</h2>
         </div>
-        <div className="wm-gallery-grid">
+        <div className="wm-gallery-stage">
+          <button
+            type="button"
+            className="wm-gallery-arrow is-prev"
+            aria-label="Previous service"
+            disabled={slide === 0}
+            onClick={() => goToSlide(slide - 1)}
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M14.5 6.5 9 12l5.5 5.5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+          <div
+            className="wm-gallery-grid"
+            ref={scroller}
+            onScroll={syncSlide}
+            onPointerDown={(event) => {
+              startX.current = event.clientX;
+              dragged.current = false;
+            }}
+            onPointerMove={(event) => {
+              if (Math.abs(event.clientX - startX.current) > 8) dragged.current = true;
+            }}
+            onClickCapture={(event) => {
+              if (!dragged.current) return;
+              event.preventDefault();
+              event.stopPropagation();
+            }}
+          >
           <Link to="/water-refilling" className="wm-shot wm-shot-water">
             <img src="/store.png" alt="" />
             <span>
@@ -423,6 +471,30 @@ export function HomePage() {
               <em aria-hidden>→</em>
             </span>
           </Link>
+          </div>
+          <button
+            type="button"
+            className="wm-gallery-arrow is-next"
+            aria-label="Next service"
+            disabled={slide === SERVICE_SLIDES.length - 1}
+            onClick={() => goToSlide(slide + 1)}
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M9.5 6.5 15 12l-5.5 5.5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+        </div>
+        <div className="wm-gallery-dots" role="tablist" aria-label="Services">
+          {SERVICE_SLIDES.map((label, index) => (
+            <button
+              key={label}
+              type="button"
+              className={slide === index ? 'is-on' : undefined}
+              aria-label={label}
+              aria-current={slide === index ? 'true' : undefined}
+              onClick={() => goToSlide(index)}
+            />
+          ))}
         </div>
       </section>
     </main>

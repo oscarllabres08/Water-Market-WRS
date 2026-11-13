@@ -17,6 +17,7 @@ import { OrderBoardPage } from './pages/OrderBoardPage';
 import { PosPage } from './pages/PosPage';
 import { SalesAnalyticsPage as SalesPage } from './pages/SalesAnalyticsPage';
 import { StaffPage } from './pages/StaffPage';
+import { StaffAccountPage } from './pages/StaffAccountPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { EwalletPage } from './pages/EwalletPage';
 import {
@@ -60,6 +61,7 @@ function Gate({
   login: string;
   children: ReactNode;
 }) {
+  const location = useLocation();
   const shown = useRef(false);
   if (ready && allowed) shown.current = true;
   if (!shown.current && !ready) {
@@ -69,7 +71,10 @@ function Gate({
       </div>
     );
   }
-  if (!allowed) return <Navigate to={login} replace />;
+  if (!allowed) {
+    const from = `${location.pathname}${location.search}${location.hash}`;
+    return <Navigate to={login} replace state={{ from }} />;
+  }
   return children;
 }
 
@@ -183,8 +188,9 @@ export default function App() {
       <Route path="wrs-management" element={<ProtectedWrs />}>
         <Route index element={<DashboardPage />} />
         <Route path="staff" element={<StaffPage />} />
+        <Route path="staff-accounts" element={<StaffAccountPage />} />
         <Route path="pos" element={<PosPage />} />
-        <Route path="orders" element={<OrderBoardPage mode="water" />} />
+        <Route path="orders" element={<Navigate to="/wrs-management/delivery" replace />} />
         <Route path="ice-orders" element={<OrderBoardPage mode="ice" />} />
         <Route path="delivery" element={<DeliveryManagementPage />} />
         <Route path="inventory" element={<InventoryPage />} />

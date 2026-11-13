@@ -123,7 +123,7 @@ export function DashboardPage() {
       const [ordersRes, posRes] = await Promise.all([
         supabase
           .from('orders')
-          .select('id,customer_id,status,customer_name,created_at,payment_settled,order_items(unit_price,quantity)')
+          .select('id,customer_id,status,customer_name,created_at,payment_settled,order_source,order_items(unit_price,quantity)')
           .eq('seller_id', businessId)
           .order('created_at', { ascending: false })
           .limit(fetchLimit),
@@ -138,7 +138,8 @@ export function DashboardPage() {
         return { rows: [] as RecentOrderRow[], hasMore: false };
       }
 
-      const onlineRows = (ordersRes.data ?? []) as Parameters<typeof mapOnlineRecent>[0][];
+      const onlineRows = ((ordersRes.data ?? []) as (Parameters<typeof mapOnlineRecent>[0] & { order_source?: string | null })[])
+        .filter((row) => row.order_source !== 'pos');
       const customerIds = [...new Set(onlineRows.map((row) => row.customer_id).filter((id): id is string => Boolean(id)))];
       const avatarByCustomer = new Map<string, string | null>();
       if (customerIds.length > 0) {
@@ -174,7 +175,7 @@ export function DashboardPage() {
       await Promise.all([
       supabase
         .from('orders')
-        .select('id,status,created_at,payment_settled,payment_settled_at,payment_method,order_items(unit_price,quantity)')
+        .select('id,status,created_at,payment_settled,payment_settled_at,payment_method,order_source,order_items(unit_price,quantity)')
         .eq('seller_id', businessId)
         .or(`and(payment_settled.eq.true,payment_settled_at.gte.${from}),and(created_at.gte.${from})`),
       supabase
@@ -204,7 +205,7 @@ export function DashboardPage() {
         .eq('seller_id', businessId)
         .eq('business_unit', 'wrs')
         .eq('expense_date', today),
-      supabase.from('orders').select('id', { count: 'exact', head: true }).eq('seller_id', businessId).gte('created_at', from),
+      supabase.from('orders').select('id', { count: 'exact', head: true }).eq('seller_id', businessId).gte('created_at', from).neq('order_source', 'pos'),
       supabase.from('pos_sales').select('id', { count: 'exact', head: true }).eq('seller_id', businessId).gte('created_at', from),
       supabase.from('loyalty_balances').select('customer_id', { count: 'exact', head: true }).eq('seller_id', businessId),
       supabase.from('seller_customer_container_balance').select('outstanding_count').eq('seller_id', businessId).gt('outstanding_count', 0),
@@ -227,8 +228,10 @@ export function DashboardPage() {
         payment_settled: boolean | null;
         payment_settled_at: string | null;
         payment_method: string | null;
+        order_source?: string | null;
         order_items: { unit_price: number; quantity: number }[];
       };
+      if (row.order_source === 'pos') continue;
       if (!orderCountsTowardOnlineSales(row)) continue;
       const recordedAt = saleRecordedAt(row);
       if (!recordedAt || recordedAt < todayStart) continue;

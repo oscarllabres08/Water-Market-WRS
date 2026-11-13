@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 
 import { useAuth } from '../auth/AuthProvider';
 import { useBusinessAccess } from '../auth/useBusinessAccess';
@@ -73,8 +73,17 @@ const PORTAL_COPY: Record<Portal, { kicker: string; title: string; tagline: stri
   },
 };
 
+function returnPath(home: string, from: unknown) {
+  if (typeof from !== 'string') return home;
+  const samePortal = from === home || from.startsWith(`${home}/`);
+  if (!samePortal) return home;
+  if (from === `${home}/login` || from.startsWith(`${home}/login?`) || from.startsWith(`${home}/login#`)) return home;
+  return from;
+}
+
 export function AuthPage({ portal = 'wrs' }: { portal?: Portal }) {
   const copy = PORTAL_COPY[portal];
+  const location = useLocation();
   const { user, loading, profileLoading, gateMessage, clearGateMessage } = useAuth();
   const access = useBusinessAccess();
   const [name, setName] = useState('');
@@ -116,7 +125,8 @@ export function AuthPage({ portal = 'wrs' }: { portal?: Portal }) {
   const allowed = portal === 'owner' ? access.owner : portal === 'laundry' ? access.laundry : access.wrs;
   const masterOnly = Boolean(user && !loading && !profileLoading && !access.loading && !allowed && portal !== 'wrs');
   if (!loading && !profileLoading && !access.loading && user && allowed) {
-    return <Navigate to={copy.home} replace />;
+    const from = (location.state as { from?: unknown } | null)?.from;
+    return <Navigate to={returnPath(copy.home, from)} replace />;
   }
 
   async function submit(e: React.FormEvent) {
@@ -180,7 +190,7 @@ export function AuthPage({ portal = 'wrs' }: { portal?: Portal }) {
         clearLoginFailures();
         if (!data.session) {
           setNotice(
-            'Account created. Confirm your email if asked, then sign in. If a master admin already exists, they must approve you on Staff account approval first.'
+            'Account created. Confirm your email if asked, then sign in. If a master admin already exists, they must approve you on Staff Acc Management first.'
           );
           setMode('signin');
           setPassword('');

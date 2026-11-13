@@ -536,9 +536,11 @@ export default function ProfileIndexScreen() {
                         </Text>
                       </Pressable>
                       <Text variant="chip" style={{ color: theme.colors.muted }}>
-                        {coords
-                          ? `Saved pin ${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)}`
-                          : 'No location saved yet'}
+                        {coords && address.trim()
+                          ? address.trim()
+                          : coords
+                            ? 'Location pin saved'
+                            : 'No location saved yet'}
                       </Text>
                       {locationMsg ? <Text variant="muted">{locationMsg}</Text> : null}
 

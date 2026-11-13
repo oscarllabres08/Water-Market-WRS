@@ -13,7 +13,7 @@ export function navigateFromAdminNotification(navigate: NavigateFunction, n: Not
     return;
   }
   if (kind === 'new_order' || kind === 'order_activity' || kind === 'pending_order_reminder' || n.order_id) {
-    navigate('/wrs-management/orders');
+    navigate('/wrs-management/delivery');
     return;
   }
   navigate('/wrs-management');

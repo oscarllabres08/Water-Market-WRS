@@ -32,8 +32,12 @@ export function PendingOrderReminderBanner({ orders, onDismiss }: Props) {
     setBusy(true);
     setNotice(null);
     const result = await requestPendingOrderReminders(orders.map((order) => order.id));
-    setNotice(result.message);
     setBusy(false);
+    if (result.ok) {
+      onDismiss();
+      return;
+    }
+    setNotice(result.message);
   }
 
   return (

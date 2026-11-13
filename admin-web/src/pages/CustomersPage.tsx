@@ -23,6 +23,8 @@ type CustomerRow = {
   avatarPath: string | null;
   phone: string;
   address: string;
+  latitude: number | null;
+  longitude: number | null;
   orderCount: number;
   lastOrder: string | null;
   hasUnpaidUtang: boolean;
@@ -83,6 +85,15 @@ type PosHistorySource = {
   customer_name: string | null;
   pos_sale_items: { product_name?: string | null; unit_price: number; quantity: number }[];
 };
+
+function customerMapHref(row: CustomerRow) {
+  const pin =
+    typeof row.latitude === 'number' && typeof row.longitude === 'number' ? `${row.latitude},${row.longitude}` : '';
+  const address = row.address.trim() && row.address !== '—' ? row.address.trim() : '';
+  const query = pin || address;
+  if (!query) return null;
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+}
 
 function mapOrderHistoryRow(o: OrderHistorySource): HistoryEntry {
   const items = (o.order_items ?? []).map((it) => ({
@@ -166,7 +177,7 @@ export function CustomersPage() {
 
     const { data: customers, error: custErr } = await supabase
       .from('profiles')
-      .select('user_id,display_name,username,phone,address,avatar_path')
+      .select('user_id,display_name,username,phone,address,latitude,longitude,avatar_path')
       .eq('role', 'customer')
       .order('created_at', { ascending: false })
       .limit(400);
@@ -209,7 +220,8 @@ export function CustomersPage() {
     const phoneByCustomer = new Map<string, string>();
 
     for (const o of orders ?? []) {
-      const row = o as OrderHistorySource & { customer_id: string; contact_number?: string | null };
+      const row = o as OrderHistorySource & { customer_id: string | null; contact_number?: string | null };
+      if (!row.customer_id) continue;
       const contact = row.contact_number?.trim();
       if (contact && !phoneByCustomer.has(row.customer_id)) phoneByCustomer.set(row.customer_id, contact);
       const orderTotal = orderGrandTotal(row.order_items, row.delivery_fee);
@@ -355,6 +367,8 @@ export function CustomersPage() {
         username: string | null;
         phone: string | null;
         address: string | null;
+        latitude: number | null;
+        longitude: number | null;
         avatar_path: string | null;
       };
       const username = p.username?.trim() || '';
@@ -373,6 +387,8 @@ export function CustomersPage() {
           avatarPath: p.avatar_path ?? null,
           phone,
           address: p.address?.trim() || '—',
+          latitude: typeof p.latitude === 'number' ? p.latitude : null,
+          longitude: typeof p.longitude === 'number' ? p.longitude : null,
           orderCount: a?.count ?? 0,
           lastOrder: a?.last ?? null,
           hasUnpaidUtang: a?.hasUnpaidUtang ?? false,
@@ -398,6 +414,8 @@ export function CustomersPage() {
       if (!existing.username && username) existing.username = username;
       if (existing.phone === '—' && phone !== '—') existing.phone = phone;
       if (existing.address === '—' && p.address?.trim()) existing.address = p.address.trim();
+      if (existing.latitude == null && typeof p.latitude === 'number') existing.latitude = p.latitude;
+      if (existing.longitude == null && typeof p.longitude === 'number') existing.longitude = p.longitude;
       if (!existing.avatarPath && p.avatar_path) existing.avatarPath = p.avatar_path;
       const extraNotes = bal?.identifier_notes?.trim();
       if (extraNotes && existing.containerIdentifierNotes && !existing.containerIdentifierNotes.includes(extraNotes)) {
@@ -442,6 +460,8 @@ export function CustomersPage() {
         avatarPath: null,
         phone: 'Walk-in POS',
         address: '—',
+        latitude: null,
+        longitude: null,
         orderCount: pos.count,
         lastOrder: pos.last,
         hasUnpaidUtang: false,
@@ -472,6 +492,8 @@ export function CustomersPage() {
           avatarPath: null,
           phone: 'Walk-in POS',
           address: '—',
+          latitude: null,
+          longitude: null,
           orderCount: 0,
           lastOrder: null,
           hasUnpaidUtang: false,
@@ -500,6 +522,8 @@ export function CustomersPage() {
         avatarPath: null,
         phone: 'Walk-in POS',
         address: '—',
+        latitude: null,
+        longitude: null,
         orderCount: 0,
         lastOrder: null,
         hasUnpaidUtang: false,
@@ -932,7 +956,14 @@ export function CustomersPage() {
               </div>
               <div>
                 <dt>Address</dt>
-                <dd>{detailsFor.address}</dd>
+                <dd>
+                  <div>{detailsFor.address}</div>
+                  {customerMapHref(detailsFor) ? (
+                    <a className="order-map" href={customerMapHref(detailsFor) ?? undefined} target="_blank" rel="noreferrer">
+                      Open in map
+                    </a>
+                  ) : null}
+                </dd>
               </div>
               <div>
                 <dt>Payment</dt>

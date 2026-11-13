@@ -7,6 +7,7 @@ import Animated, { FadeInDown, FadeOutUp } from 'react-native-reanimated';
 import { Pressable, Text as RNText, View } from 'react-native';
 
 import { useColorScheme } from '../components/useColorScheme';
+import { useRiderPresence } from '../lib/storePresence';
 import { AuthProvider, useAuth } from '../providers/AuthProvider';
 import { NotificationsProvider, useNotifications } from '../providers/NotificationsProvider';
 import { Ionicons } from '@expo/vector-icons';
@@ -144,7 +145,8 @@ function RootLayoutNav() {
 }
 
 function AuthGate() {
-  const { user, loading, profileLoading, accessReady, canEnterApp } = useAuth();
+  const { user, loading, profileLoading, accessReady, canEnterApp, businessId } = useAuth();
+  useRiderPresence(businessId, user?.id ?? null, canEnterApp);
   const { toast, dismissToast } = useNotifications();
   const { visibleOrders, dismissBanner } = usePendingOrderReminder();
   const segments = useSegments();

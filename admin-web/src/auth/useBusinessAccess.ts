@@ -7,30 +7,37 @@ type RoleRow = { business_id: string; role: string };
 
 export function useBusinessAccess() {
   const { user, isStoreOwner, isApprovedStaff, profileLoading } = useAuth();
+  const userId = user?.id ?? null;
   const [roles, setRoles] = useState<RoleRow[]>([]);
-  const [rolesLoading, setRolesLoading] = useState(false);
+  const [trackedUser, setTrackedUser] = useState<string | null>(userId);
+  const [rolesLoading, setRolesLoading] = useState(Boolean(userId));
+
+  if (userId !== trackedUser) {
+    setTrackedUser(userId);
+    setRoles([]);
+    setRolesLoading(Boolean(userId));
+  }
 
   useEffect(() => {
-    if (!user) {
-      setRoles([]);
-      setRolesLoading(false);
-      return;
-    }
+    if (!userId) return;
     let alive = true;
-    setRolesLoading(true);
     void supabase
       .from('user_business_roles')
       .select('business_id,role')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .then(({ data }) => {
         if (!alive) return;
         setRoles((data ?? []) as RoleRow[]);
+        setRolesLoading(false);
+      })
+      .catch(() => {
+        if (!alive) return;
         setRolesLoading(false);
       });
     return () => {
       alive = false;
     };
-  }, [user?.id]);
+  }, [userId]);
 
   const has = (businessId: string) => roles.some((row) => row.business_id === businessId);
   return {

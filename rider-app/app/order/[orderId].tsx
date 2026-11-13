@@ -338,16 +338,14 @@ export default function OrderDetailsScreen() {
     const previous = order.status;
     setUpdating(true);
     setError(null);
-    try {
-      const { error: err } = await supabase.from('orders').update({ status: next }).eq('id', order.id);
-      if (err) throw err;
-      setOrder((o) => (o ? { ...o, status: next } : o));
-    } catch (e) {
+    const { error: err } = await supabase.from('orders').update({ status: next }).eq('id', order.id);
+    if (err) {
       setOrder((o) => (o ? { ...o, status: previous } : o));
-      setError(e instanceof Error ? e.message : 'Failed to update status');
-    } finally {
-      setUpdating(false);
+      setError(err.message || 'Failed to update status');
+    } else {
+      setOrder((o) => (o ? { ...o, status: next } : o));
     }
+    setUpdating(false);
   }
 
   async function submitContainerLend() {

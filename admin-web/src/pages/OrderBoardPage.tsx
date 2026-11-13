@@ -231,6 +231,7 @@ export function OrderBoardPage({ mode }: { mode: 'water' | 'ice' | 'delivery' })
       const hasWaterStation = items.some((item) => itemCategory(item) !== 'ice');
       if (mode === 'ice' && !hasIce) return false;
       if (mode === 'water' && hasIce && !hasWaterStation) return false;
+      if (order.order_source === 'pos') return false;
       if (mode === 'delivery' && !['confirmed', 'preparing', 'on_the_way'].includes(order.status)) return false;
       if (statusFilter !== 'all' && order.status !== statusFilter) return false;
       return true;

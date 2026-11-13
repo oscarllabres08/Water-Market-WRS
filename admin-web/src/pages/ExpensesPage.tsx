@@ -32,6 +32,16 @@ export function ExpensesPage({ businessUnit = 'wrs' }: { businessUnit?: 'wrs' | 
   const [loadError, setLoadError] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ExpenseRow | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
+  const [editDraft, setEditDraft] = useState<{
+    id: string;
+    expenseType: ExpenseType;
+    othersLabel: string;
+    amount: string;
+    expenseDate: string;
+    notes: string;
+  } | null>(null);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [editSaving, setEditSaving] = useState(false);
 
   const [viewDate, setViewDate] = useState(todayDateInputValue);
   const [viewAllDates, setViewAllDates] = useState(false);
@@ -75,6 +85,15 @@ export function ExpensesPage({ businessUnit = 'wrs' }: { businessUnit?: 'wrs' | 
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (!editDraft || editSaving) return;
+    function onKey(event: KeyboardEvent) {
+      if (event.key === 'Escape') closeEdit();
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [editDraft, editSaving]);
 
   useEffect(() => {
     if (!businessId) return;
@@ -134,18 +153,79 @@ export function ExpensesPage({ businessUnit = 'wrs' }: { businessUnit?: 'wrs' | 
     }
   }
 
+  function beginEdit(row: ExpenseRow) {
+    setEditDraft({
+      id: row.id,
+      expenseType: row.expense_type,
+      othersLabel: row.others_label ?? '',
+      amount: String(Number(row.amount)),
+      expenseDate: row.expense_date.slice(0, 10),
+      notes: row.notes ?? '',
+    });
+    setEditError(null);
+  }
+
+  function closeEdit() {
+    if (editSaving) return;
+    setEditDraft(null);
+    setEditError(null);
+  }
+
+  async function saveEdit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!businessId || !editDraft) return;
+    const amt = Number(editDraft.amount);
+    if (!Number.isFinite(amt) || amt <= 0) {
+      setEditError('Enter a valid amount greater than zero.');
+      return;
+    }
+    if (editDraft.expenseType === 'others' && !editDraft.othersLabel.trim()) {
+      setEditError('Please describe the expense under Others.');
+      return;
+    }
+    setEditSaving(true);
+    setEditError(null);
+    try {
+      const { data, error: err } = await supabase
+        .from('business_expenses')
+        .update({
+          expense_type: editDraft.expenseType,
+          others_label: editDraft.expenseType === 'others' ? editDraft.othersLabel.trim() : null,
+          amount: amt,
+          expense_date: editDraft.expenseDate,
+          notes: editDraft.notes.trim() || null,
+        })
+        .eq('id', editDraft.id)
+        .eq('seller_id', businessId)
+        .eq('business_unit', businessUnit)
+        .select('id');
+      if (err) throw err;
+      if (!data?.length) throw new Error('Could not update this expense.');
+      if (!viewAllDates) setViewDate(editDraft.expenseDate);
+      setEditDraft(null);
+      await load();
+    } catch (ex) {
+      setEditError(ex instanceof Error ? ex.message : 'Could not save expense');
+    } finally {
+      setEditSaving(false);
+    }
+  }
+
   async function confirmRemoveExpense() {
     if (!businessId || !deleteTarget) return;
     setDeleteBusy(true);
     setLoadError(null);
-    const { error: err } = await supabase
+    const { data, error: err } = await supabase
       .from('business_expenses')
       .delete()
       .eq('id', deleteTarget.id)
       .eq('seller_id', businessId)
-      .eq('business_unit', businessUnit);
+      .eq('business_unit', businessUnit)
+      .select('id');
     if (err) setLoadError(err.message);
+    else if (!data?.length) setLoadError('Could not delete this expense.');
     else {
+      if (editDraft?.id === deleteTarget.id) closeEdit();
       setDeleteTarget(null);
       await load();
     }
@@ -289,9 +369,14 @@ export function ExpensesPage({ businessUnit = 'wrs' }: { businessUnit?: 'wrs' | 
                     <td>{money(Number(r.amount))}</td>
                     <td>{r.notes?.trim() || '—'}</td>
                     <td>
-                      <button type="button" className="btn btn-ghost btn-sm" onClick={() => setDeleteTarget(r)}>
-                        Delete
-                      </button>
+                      <div className="expenses-row-actions">
+                        <button type="button" className="btn btn-ghost btn-sm" onClick={() => beginEdit(r)}>
+                          Edit
+                        </button>
+                        <button type="button" className="btn btn-danger btn-sm" onClick={() => setDeleteTarget(r)}>
+                          Delete
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -302,10 +387,96 @@ export function ExpensesPage({ businessUnit = 'wrs' }: { businessUnit?: 'wrs' | 
       </div>
       </div>
 
+      {editDraft ? (
+        <div className="modal-backdrop" role="presentation" onClick={closeEdit}>
+          <div
+            className="modal-card expenses-edit-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="expense-edit-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h2 id="expense-edit-title" className="card-title">Edit expense</h2>
+            {editError ? <p className="error-text">{editError}</p> : null}
+            <form className="expenses-form" onSubmit={(e) => void saveEdit(e)}>
+              <div className="field">
+                <label htmlFor="edit-exp-type">Type</label>
+                <select
+                  id="edit-exp-type"
+                  value={editDraft.expenseType}
+                  onChange={(e) => setEditDraft({ ...editDraft, expenseType: e.target.value as ExpenseType })}
+                >
+                  {EXPENSE_TYPES.map((t) => (
+                    <option key={t.value} value={t.value}>
+                      {t.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="field">
+                <label htmlFor="edit-exp-amount">Amount (₱)</label>
+                <input
+                  id="edit-exp-amount"
+                  type="number"
+                  min={0.01}
+                  step="0.01"
+                  value={editDraft.amount}
+                  onChange={(e) => setEditDraft({ ...editDraft, amount: e.target.value })}
+                  required
+                />
+              </div>
+              {editDraft.expenseType === 'others' ? (
+                <div className="field">
+                  <label htmlFor="edit-exp-others">Others — describe</label>
+                  <input
+                    id="edit-exp-others"
+                    value={editDraft.othersLabel}
+                    onChange={(e) => setEditDraft({ ...editDraft, othersLabel: e.target.value })}
+                    placeholder="e.g. Maintenance, supplies"
+                    required
+                  />
+                </div>
+              ) : null}
+              <div className="field">
+                <label htmlFor="edit-exp-date">Expense date</label>
+                <input
+                  id="edit-exp-date"
+                  type="date"
+                  value={editDraft.expenseDate}
+                  onChange={(e) => setEditDraft({ ...editDraft, expenseDate: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="edit-exp-notes">Notes (optional)</label>
+                <input
+                  id="edit-exp-notes"
+                  value={editDraft.notes}
+                  onChange={(e) => setEditDraft({ ...editDraft, notes: e.target.value })}
+                  placeholder="Receipt ref, remarks…"
+                />
+              </div>
+              <div className="expenses-form-actions">
+                <button type="button" className="btn btn-ghost" disabled={editSaving} onClick={closeEdit}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn btn-primary btn-water" disabled={editSaving}>
+                  {editSaving ? 'Saving…' : 'Save'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+
       <ConfirmModal
         open={deleteTarget != null}
         title="Delete expense?"
-        message="Delete this expense entry? This cannot be undone."
+        message={
+          deleteTarget
+            ? `Delete ${expenseTypeLabel(deleteTarget.expense_type, deleteTarget.others_label)} (${money(Number(deleteTarget.amount))})? This cannot be undone.`
+            : 'Delete this expense entry? This cannot be undone.'
+        }
         confirmLabel="Yes, delete"
         variant="danger"
         busy={deleteBusy}

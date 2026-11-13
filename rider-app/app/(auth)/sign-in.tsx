@@ -116,7 +116,7 @@ export default function SignInScreen() {
             />
           </View>
           <Text variant="title" weight="extrabold">
-            Seller Login
+            Rider Login
           </Text>
           <Text variant="muted" style={{ marginTop: 4 }}>
             The master admin and approved riders sign in here with their WRS account.

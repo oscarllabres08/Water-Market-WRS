@@ -6,6 +6,7 @@ import { AdminNotificationsButton } from '../components/AdminNotificationsButton
 import { PendingOrderReminderBanner } from '../components/PendingOrderReminderBanner';
 import { usePendingOrderReminder } from '../hooks/usePendingOrderReminder';
 import { supabase } from '../lib/supabase';
+import { StorePresence } from '../lib/storePresence';
 import { useTheme } from '../theme/ThemeProvider';
 
 type NavIconId =
@@ -168,13 +169,13 @@ function MenuIcon({ open }: { open: boolean }) {
 const NAV = [
   { to: '/wrs-management', label: 'Dashboard', end: true, icon: 'dashboard' as const },
   { to: '/wrs-management/pos', label: 'POS', icon: 'pos' as const },
-  { to: '/wrs-management/orders', label: 'Water Online Orders', icon: 'orders' as const },
   { to: '/wrs-management/ice-orders', label: 'Ice Order Management', icon: 'ice' as const },
   { to: '/wrs-management/delivery', label: 'Delivery Management', icon: 'delivery' as const },
   { to: '/wrs-management/inventory', label: 'Inventory', icon: 'inventory' as const },
   { to: '/wrs-management/customers', label: 'Customers', icon: 'customers' as const },
   { to: '/wrs-management/staff', label: 'Riders', icon: 'riders' as const, ownerOnly: true },
-  { to: '/wrs-management/sales', label: 'Reports', icon: 'sales' as const },
+  { to: '/wrs-management/staff-accounts', label: 'Staff Acc Management', icon: 'staff' as const, ownerOnly: true },
+  { to: '/wrs-management/sales', label: 'Sales report and analytics', icon: 'sales' as const },
   { to: '/wrs-management/containers', label: 'Containers', icon: 'containers' as const },
   { to: '/wrs-management/loyalty', label: 'Loyalty Points', icon: 'loyalty' as const },
   { to: '/wrs-management/expenses', label: 'Expenses', icon: 'expenses' as const },
@@ -183,15 +184,15 @@ const NAV = [
 const PAGE_TITLES: { match: (path: string) => boolean; label: string }[] = [
   { match: (p) => p === '/wrs-management', label: 'Dashboard' },
   { match: (p) => p.startsWith('/wrs-management/pos'), label: 'POS' },
-  { match: (p) => p.startsWith('/wrs-management/orders'), label: 'Water Online Orders' },
   { match: (p) => p.startsWith('/wrs-management/ice-orders'), label: 'Ice Order Management' },
   { match: (p) => p.startsWith('/wrs-management/delivery'), label: 'Delivery Management' },
   { match: (p) => p.startsWith('/wrs-management/inventory'), label: 'Inventory' },
   { match: (p) => p.startsWith('/wrs-management/containers'), label: 'Containers' },
-  { match: (p) => p.startsWith('/wrs-management/sales'), label: 'Reports' },
+  { match: (p) => p.startsWith('/wrs-management/sales'), label: 'Sales report and analytics' },
   { match: (p) => p.startsWith('/wrs-management/loyalty'), label: 'Loyalty Points' },
   { match: (p) => p.startsWith('/wrs-management/customers'), label: 'Customers' },
   { match: (p) => p.startsWith('/wrs-management/expenses'), label: 'Expenses' },
+  { match: (p) => p.startsWith('/wrs-management/staff-accounts'), label: 'Staff Acc Management' },
   { match: (p) => p.startsWith('/wrs-management/staff'), label: 'Riders' },
   { match: (p) => p.startsWith('/wrs-management/ewallet'), label: 'E-wallet' },
   { match: (p) => p.startsWith('/wrs-management/settings'), label: 'Settings' },
@@ -225,7 +226,6 @@ export function AdminLayout() {
     location.pathname === '/wrs-management/pos' ||
     location.pathname === '/wrs-management/inventory' ||
     location.pathname === '/wrs-management/sales' ||
-    location.pathname === '/wrs-management/orders' ||
     location.pathname === '/wrs-management/ice-orders' ||
     location.pathname === '/wrs-management/delivery' ||
     location.pathname === '/wrs-management/containers' ||
@@ -337,6 +337,7 @@ export function AdminLayout() {
   });
 
   return (
+    <StorePresence businessId={businessId} userId={user?.id ?? null} app="admin">
     <div className={`admin-shell${navOpen ? ' admin-shell--nav-open' : ''}`}>
       <header className="admin-mobile-bar">
         <button
@@ -427,8 +428,8 @@ export function AdminLayout() {
                       <span className={`admin-status-pill${storeOpen ? '' : ' is-off'}`}>{storeOpen ? 'Online' : 'Offline'}</span>
                     </span>
                   ) : null}
-                  {item.to === '/wrs-management/orders' && pendingWater > 0 ? <span className="admin-badge">{pendingWater}</span> : null}
-                  {item.to === '/wrs-management/staff' && pendingStaff > 0 ? <span className="admin-badge">{pendingStaff}</span> : null}
+                  {item.to === '/wrs-management/delivery' && pendingWater > 0 ? <span className="admin-badge">{pendingWater}</span> : null}
+                  {item.to === '/wrs-management/staff-accounts' && pendingStaff > 0 ? <span className="admin-badge">{pendingStaff}</span> : null}
                 </NavLink>
               ))}
 
@@ -541,5 +542,6 @@ export function AdminLayout() {
         </main>
       </div>
     </div>
+    </StorePresence>
   );
 }

@@ -1363,7 +1363,7 @@ export default function OrderScreen() {
                             Current location is already in use.
                           </Text>
                           <Text variant="muted" style={{ fontSize: 12, marginTop: 2 }}>
-                            {coords.latitude.toFixed(4)}, {coords.longitude.toFixed(4)}
+                            {deliveryAddress.trim() || 'Address saved from your current location.'}
                           </Text>
                         </View>
                       ) : (

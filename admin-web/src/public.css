@@ -784,6 +784,11 @@
   gap: 12px;
 }
 
+.wm-gallery-dots,
+.wm-gallery-arrow {
+  display: none;
+}
+
 .wm-shot {
   position: relative;
   display: block;
@@ -1874,7 +1879,81 @@
   .wm-trust small { font-size: 12px; line-height: 1.4; margin-top: 3px; }
   .wm-ice-book { position: static; }
   .wm-ice-script { font-size: 24px; }
-  .wm-gallery-grid { grid-template-columns: 1fr; }
+  .wm-gallery-grid {
+    display: flex;
+    grid-template-columns: none;
+    gap: 0;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    border-radius: 18px;
+  }
+  .wm-gallery-grid::-webkit-scrollbar { display: none; }
+  .wm-shot {
+    flex: 0 0 100%;
+    width: 100%;
+    min-height: 0;
+    height: auto;
+    aspect-ratio: 16 / 10;
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+  }
+  .wm-shot-water img { object-position: 68% 52%; }
+  .wm-shot > span:last-child { padding: 36px 14px 12px; }
+  .wm-shot strong { font-size: 16px; }
+  .wm-shot small { font-size: 13px; line-height: 1.3; }
+  .wm-gallery-dots {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .wm-gallery-dots button {
+    width: 8px;
+    height: 8px;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    background: rgba(18, 53, 127, 0.28);
+    cursor: pointer;
+  }
+  .wm-gallery-dots button.is-on {
+    width: 22px;
+    background: #1f7cf0;
+  }
+  .wm-public.is-dark .wm-gallery-dots button {
+    background: rgba(255, 255, 255, 0.35);
+  }
+  .wm-public.is-dark .wm-gallery-dots button.is-on {
+    background: #9ecbff;
+  }
+  .wm-gallery-stage { position: relative; }
+  .wm-gallery-arrow {
+    display: grid;
+    place-items: center;
+    position: absolute;
+    top: 50%;
+    z-index: 2;
+    width: 40px;
+    height: 40px;
+    margin-top: -20px;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.94);
+    color: #12357f;
+    cursor: pointer;
+    box-shadow: 0 6px 16px rgba(8, 28, 70, 0.28);
+  }
+  .wm-gallery-arrow svg { width: 20px; height: 20px; }
+  .wm-gallery-arrow.is-prev { left: 10px; }
+  .wm-gallery-arrow.is-next { right: 10px; }
+  .wm-gallery-arrow:disabled {
+    opacity: 0;
+    pointer-events: none;
+  }
   .wm-hero { padding: 24px; }
   .wm-hero-home { padding: 8px 0 0; }
   .wm-hero-art { height: 180px; }

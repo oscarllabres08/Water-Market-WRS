@@ -41,28 +41,35 @@ export default function ProfileCustomersListScreen() {
     setLoading(true);
     setError(null);
 
-    const { data: orders, error: ordErr } = await supabase
-      .from('orders')
-      .select('customer_id,customer_name,contact_number')
-      .eq('seller_id', businessId)
-      .order('created_at', { ascending: false })
-      .limit(1200);
+    const [ordersRes, customersRes, salesRes, savedRes, hiddenRes, hiddenPosRes] = await Promise.all([
+      supabase
+        .from('orders')
+        .select('customer_id,customer_name,contact_number')
+        .eq('seller_id', businessId)
+        .order('created_at', { ascending: false })
+        .limit(1200),
+      supabase
+        .from('profiles')
+        .select('user_id,display_name,phone,avatar_path')
+        .eq('role', 'customer')
+        .order('created_at', { ascending: false })
+        .limit(400),
+      supabase.from('pos_sales').select('customer_name').eq('seller_id', businessId).limit(1200),
+      supabase.from('seller_pos_customers').select('display_name').eq('seller_id', businessId),
+      supabase.from('seller_hidden_customers').select('customer_id').eq('seller_id', businessId),
+      supabase.from('seller_hidden_pos_customers').select('customer_name_key').eq('seller_id', businessId),
+    ]);
 
-    if (ordErr) {
-      setError(ordErr.message);
+    if (ordersRes.error) {
+      setError(ordersRes.error.message);
       setRows([]);
       setLoading(false);
       return;
     }
 
-    const { data: customers, error: custErr } = await supabase
-      .from('profiles')
-      .select('user_id,display_name,phone,avatar_path')
-      .eq('role', 'customer')
-      .order('created_at', { ascending: false })
-      .limit(300);
-
-    if (custErr) setError(custErr.message);
+    const orders = ordersRes.data;
+    const customers = customersRes.data;
+    if (customersRes.error) setError(customersRes.error.message);
 
     type Agg = {
       id: string;
@@ -93,24 +100,81 @@ export default function ProfileCustomersListScreen() {
       });
     }
 
-    for (const o of (orders ?? []) as { customer_id: string; customer_name: string; contact_number: string }[]) {
-      if (typeof o.customer_id !== 'string' || !o.customer_id) continue;
-      const existing = byId.get(o.customer_id) ?? {
-        id: o.customer_id,
-        name: (o.customer_name ?? 'Customer').trim() || 'Customer',
-        phone: (o.contact_number ?? '').trim(),
-        avatarPath: null,
-        orderCount: 0,
-        outstanding: 0,
-        identifierNotes: null,
-      };
-      byId.set(o.customer_id, {
-        ...existing,
-        name: existing.name || (o.customer_name ?? 'Customer'),
-        phone: existing.phone || (o.contact_number ?? ''),
-        orderCount: existing.orderCount + 1,
-      });
+    const nameToId = new Map<string, string>();
+    for (const row of byId.values()) {
+      const key = row.name.trim().replace(/\s+/g, ' ').toLowerCase();
+      if (key) nameToId.set(key, row.id);
     }
+
+    function addNamedCustomer(rawName: string | null | undefined, phone = '') {
+      const name = (rawName ?? '').trim().replace(/\s+/g, ' ');
+      const key = name.toLowerCase();
+      if (!key || key === 'walk-in' || key === 'customer') return;
+      const existingId = nameToId.get(key);
+      if (existingId) {
+        const existing = byId.get(existingId);
+        if (!existing) return;
+        byId.set(existingId, {
+          ...existing,
+          phone: existing.phone || phone.trim(),
+          orderCount: existing.orderCount + 1,
+        });
+        return;
+      }
+      const id = `walkin-${encodeURIComponent(name)}`;
+      const existing = byId.get(id);
+      byId.set(id, {
+        id,
+        name,
+        phone: phone.trim() || existing?.phone || '',
+        avatarPath: null,
+        orderCount: (existing?.orderCount ?? 0) + 1,
+        outstanding: existing?.outstanding ?? 0,
+        identifierNotes: existing?.identifierNotes ?? null,
+      });
+      nameToId.set(key, id);
+    }
+
+    for (const o of (orders ?? []) as { customer_id: string | null; customer_name: string; contact_number: string }[]) {
+      if (typeof o.customer_id === 'string' && o.customer_id) {
+        const existing = byId.get(o.customer_id) ?? {
+          id: o.customer_id,
+          name: (o.customer_name ?? 'Customer').trim() || 'Customer',
+          phone: (o.contact_number ?? '').trim(),
+          avatarPath: null,
+          orderCount: 0,
+          outstanding: 0,
+          identifierNotes: null,
+        };
+        byId.set(o.customer_id, {
+          ...existing,
+          name: existing.name || (o.customer_name ?? 'Customer'),
+          phone: existing.phone || (o.contact_number ?? ''),
+          orderCount: existing.orderCount + 1,
+        });
+        const key = existing.name.trim().replace(/\s+/g, ' ').toLowerCase();
+        if (key) nameToId.set(key, o.customer_id);
+      } else {
+        addNamedCustomer(o.customer_name, o.contact_number ?? '');
+      }
+    }
+
+    for (const sale of (salesRes.data ?? []) as { customer_name: string | null }[]) {
+      addNamedCustomer(sale.customer_name);
+    }
+    for (const saved of (savedRes.data ?? []) as { display_name: string | null }[]) {
+      const name = (saved.display_name ?? '').trim();
+      const key = name.replace(/\s+/g, ' ').toLowerCase();
+      if (!key || nameToId.has(key)) continue;
+      addNamedCustomer(name);
+      const row = byId.get(nameToId.get(key) ?? '');
+      if (row && row.orderCount > 0) byId.set(row.id, { ...row, orderCount: row.orderCount - 1 });
+    }
+
+    const hiddenIds = new Set(((hiddenRes.data ?? []) as { customer_id: string }[]).map((row) => row.customer_id));
+    const hiddenNames = new Set(
+      ((hiddenPosRes.data ?? []) as { customer_name_key: string }[]).map((row) => row.customer_name_key.trim().toLowerCase())
+    );
 
     const { data: balances, error: balErr } = await supabase
       .from('seller_customer_container_balance')
@@ -134,9 +198,12 @@ export default function ProfileCustomersListScreen() {
       });
     }
 
-    const list = Array.from(byId.values()).filter(
-      (r) => typeof r.id === 'string' && r.id.length > 0 && r.orderCount > 0
-    );
+    const list = Array.from(byId.values()).filter((r) => {
+      if (typeof r.id !== 'string' || r.id.length === 0) return false;
+      if (hiddenIds.has(r.id)) return false;
+      if (hiddenNames.has(r.name.trim().replace(/\s+/g, ' ').toLowerCase())) return false;
+      return true;
+    });
     list.sort((a, b) => {
       if (b.outstanding !== a.outstanding) return b.outstanding - a.outstanding;
       if (b.orderCount !== a.orderCount) return b.orderCount - a.orderCount;
@@ -228,7 +295,7 @@ export default function ProfileCustomersListScreen() {
           loading ? null : (
             <Card>
               <Text variant="muted" weight="semibold">
-                No customers with orders at your store yet.
+                No customers yet. Online and walk-in customers appear here.
               </Text>
             </Card>
           )
@@ -318,7 +385,12 @@ function BorrowedCustomerCard({
       <Pressable
         onPress={() => {
           if (!item.id) return;
-          router.push({ pathname: '/customer/[customerKey]', params: { customerKey: item.id } });
+          router.push({
+            pathname: '/customer/[customerKey]',
+            params: item.id.startsWith('walkin-')
+              ? { customerKey: item.id, source: 'walkin', name: item.name, phone: item.phone }
+              : { customerKey: item.id },
+          });
         }}
       >
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>

@@ -59,6 +59,9 @@ type PosDraft = {
   borrowOpen: boolean;
   borrowDraft: string;
   addLoyalty: boolean;
+  forDelivery?: boolean;
+  deliveryAddress?: string;
+  deliveryLandmark?: string;
 };
 
 function posDraftKey(businessId: string) {
@@ -117,6 +120,9 @@ export function PosPage() {
   const [borrowSaving, setBorrowSaving] = useState(false);
   const [borrowedAdded, setBorrowedAdded] = useState<string[]>([]);
   const [addLoyalty, setAddLoyalty] = useState(false);
+  const [forDelivery, setForDelivery] = useState(false);
+  const [deliveryAddress, setDeliveryAddress] = useState('');
+  const [deliveryLandmark, setDeliveryLandmark] = useState('');
   const [addedNote, setAddedNote] = useState<string | null>(null);
   const [addedFlashId, setAddedFlashId] = useState<string | null>(null);
   const lastSavedCustomerKey = useRef('');
@@ -158,6 +164,9 @@ export function PosPage() {
       setBorrowOpen(Boolean(draft.borrowOpen));
       setBorrowCode(draft.borrowDraft ?? '');
       setAddLoyalty(Boolean(draft.addLoyalty));
+      setForDelivery(Boolean(draft.forDelivery));
+      setDeliveryAddress(draft.deliveryAddress ?? '');
+      setDeliveryLandmark(draft.deliveryLandmark ?? '');
     }
     skipDraftSave.current = true;
   }, [businessId]);
@@ -176,8 +185,11 @@ export function PosPage() {
       borrowOpen,
       borrowDraft: borrowCode,
       addLoyalty,
+      forDelivery,
+      deliveryAddress,
+      deliveryLandmark,
     });
-  }, [businessId, cart, customerName, paymentMethod, cashReceived, borrowOpen, borrowCode, addLoyalty]);
+  }, [businessId, cart, customerName, paymentMethod, cashReceived, borrowOpen, borrowCode, addLoyalty, forDelivery, deliveryAddress, deliveryLandmark]);
 
   useEffect(() => {
     void loadProducts();
@@ -296,6 +308,9 @@ export function PosPage() {
     setBorrowCode('');
     setBorrowedAdded([]);
     setAddLoyalty(false);
+    setForDelivery(false);
+    setDeliveryAddress('');
+    setDeliveryLandmark('');
     setSuccess(null);
   }
 
@@ -363,6 +378,16 @@ export function PosPage() {
 
     if (!paymentSettled && !customerName.trim()) {
       setError('Customer name is required for unpaid orders.');
+      return;
+    }
+
+    if (forDelivery && !customerName.trim()) {
+      setError('Customer name is required for a delivery.');
+      return;
+    }
+
+    if (forDelivery && !deliveryAddress.trim()) {
+      setError('Enter the delivery address.');
       return;
     }
 
@@ -446,6 +471,41 @@ export function PosPage() {
         }
       }
 
+      let deliveryNote = '';
+      if (forDelivery) {
+        const { error: flagErr } = await supabase
+          .from('pos_sales')
+          .update({
+            for_delivery: true,
+            delivery_address: deliveryAddress.trim(),
+            delivery_landmark: deliveryLandmark.trim() || null,
+          })
+          .eq('id', saleId);
+        const { data: deliveryOrderId, error: deliveryErr } = await supabase.rpc('pos_open_walkin_delivery', {
+          p_sale_id: saleId,
+          p_customer_name: trimmedName,
+          p_address: deliveryAddress.trim(),
+          p_landmark: deliveryLandmark.trim(),
+          p_payment_method: paymentMethod,
+        });
+        if (deliveryErr || !deliveryOrderId) {
+          const detail = deliveryErr?.message ?? 'No delivery order was created.';
+          const missing = /pos_open_walkin_delivery|schema cache|could not find|for_delivery|delivery_address|delivery_order_id/i.test(
+            `${detail} ${flagErr?.message ?? ''}`
+          );
+          await loadProducts();
+          await loadCustomerNames();
+          clearCart();
+          setError(
+            missing
+              ? 'The sale was saved, but it is not on Delivery Management yet. Run supabase/migrations/0013_pos_walkin_delivery.sql again in the Supabase SQL Editor, then enter this walk-in delivery once more.'
+              : `The sale was saved, but it was not added to Delivery Management. ${detail}`
+          );
+          return;
+        }
+        deliveryNote = ' It is now on Delivery Management, under For Delivery.';
+      }
+
       await loadProducts();
       await loadCustomerNames();
       clearCart();
@@ -453,8 +513,8 @@ export function PosPage() {
       const payLabel = paymentMethod === 'gcash' ? 'GCash' : 'Cash';
       setSuccess(
         paymentSettled
-          ? `${who}Paid ${payLabel} sale recorded.${changeDue != null && changeDue > 0 ? ` Change: ${money(changeDue)}.` : ''}${loyaltyNote}`
-          : `${who}Unpaid ${payLabel} sale recorded.${trimmedName ? ' Customer added to list.' : ''}${loyaltyNote}`
+          ? `${who}Paid ${payLabel} sale recorded.${changeDue != null && changeDue > 0 ? ` Change: ${money(changeDue)}.` : ''}${loyaltyNote}${deliveryNote}`
+          : `${who}Unpaid ${payLabel} sale recorded.${trimmedName ? ' Customer added to list.' : ''}${loyaltyNote}${deliveryNote}`
       );
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to save sale');
@@ -639,10 +699,45 @@ export function PosPage() {
               options={customerNameOptions}
               hint={
                 <p className="field-hint pos-customer-hint">
-                  Tap a suggestion to use that customer. If you do not tap one, the name you typed is a new customer. The same exact name is not added twice.
+                  {forDelivery
+                    ? 'Name is required for a delivery.'
+                    : 'Tap a suggestion to use that customer. If you do not tap one, the name you typed is a new customer. The same exact name is not added twice.'}
                 </p>
               }
             />
+
+            <div className="pos-borrow-block">
+              <label className="pos-borrow-toggle">
+                <input
+                  type="checkbox"
+                  checked={forDelivery}
+                  onChange={(e) => setForDelivery(e.target.checked)}
+                />
+                <span>For delivery</span>
+              </label>
+              {forDelivery ? (
+                <div className="pos-borrow-fields">
+                  <label className="field">
+                    <span>Address</span>
+                    <input
+                      type="text"
+                      value={deliveryAddress}
+                      placeholder="Street, purok, barangay"
+                      onChange={(e) => setDeliveryAddress(e.target.value)}
+                    />
+                  </label>
+                  <label className="field">
+                    <span>Instruction / landmark</span>
+                    <input
+                      type="text"
+                      value={deliveryLandmark}
+                      placeholder="Near the chapel, leave at the gate"
+                      onChange={(e) => setDeliveryLandmark(e.target.value)}
+                    />
+                  </label>
+                </div>
+              ) : null}
+            </div>
 
             <div className="pos-borrow-block">
               <label className="pos-borrow-toggle">

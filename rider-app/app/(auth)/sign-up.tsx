@@ -88,6 +88,7 @@ export default function SignUpScreen() {
             display_name: name.trim(),
             phone: contactNumber.trim(),
             seller_signup: true,
+            signup_channel: 'rider',
           },
         },
       });
@@ -180,7 +181,7 @@ export default function SignUpScreen() {
             />
           </View>
           <Text variant="title" weight="extrabold">
-            Create seller account
+            Create rider account
           </Text>
           <Text variant="muted" style={{ marginTop: 4 }}>
             Submit your details. Your account stays inactive until approved by your store administrator.

@@ -40,7 +40,7 @@ export function AnalyticsPage() {
 
     const { data: orders } = await supabase
       .from('orders')
-      .select('id,status,payment_settled,order_items(unit_price,quantity)')
+      .select('id,status,payment_settled,order_source,order_items(unit_price,quantity)')
       .eq('seller_id', businessId)
       .gte('created_at', from.toISOString());
 
@@ -50,8 +50,10 @@ export function AnalyticsPage() {
       const row = o as {
         status: string;
         payment_settled: boolean | null;
+        order_source?: string | null;
         order_items: { unit_price: number; quantity: number }[];
       };
+      if (row.order_source === 'pos') continue;
       statusMap.set(row.status, (statusMap.get(row.status) ?? 0) + 1);
       if (row.payment_settled === true && row.status !== 'cancelled') {
         for (const it of row.order_items ?? []) {
@@ -62,7 +64,9 @@ export function AnalyticsPage() {
     setOnlineSales(sales);
     setByStatus([...statusMap.entries()].map(([status, count]) => ({ status, count })).sort((a, b) => b.count - a.count));
 
-    const orderIds = (orders ?? []).map((o) => (o as { id: string }).id);
+    const orderIds = (orders ?? [])
+      .filter((o) => (o as { order_source?: string | null }).order_source !== 'pos')
+      .map((o) => (o as { id: string }).id);
     if (orderIds.length === 0) {
       setTopProducts([]);
       setLoading(false);
