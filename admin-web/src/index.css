@@ -9103,6 +9103,40 @@ input[type='number']::-webkit-inner-spin-button {
 .order-status-option.is-delivered { color: #166534; }
 .order-status-option.is-cancelled { color: #b91c1c; }
 
+.delivery-board-table { min-width: 980px; }
+
+.delivery-rider {
+  width: 100%;
+  max-width: 220px;
+  border: 1px solid var(--border);
+  background: var(--input-bg);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 8px 10px;
+  font: inherit;
+}
+
+.delivery-cat,
+.delivery-state {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 8px;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-weight: 700;
+  background: rgba(0, 116, 240, 0.1);
+  color: #0b4fad;
+}
+
+.delivery-cat.is-ice { background: rgba(0, 183, 245, 0.16); color: #0f6f8a; }
+.delivery-cat.is-laundry { background: rgba(91, 33, 182, 0.12); color: #5b21b6; }
+.delivery-state.is-unassigned { background: rgba(154, 103, 0, 0.12); color: #9a6700; }
+.delivery-state.is-for_delivery { background: rgba(11, 79, 173, 0.12); color: #0b4fad; }
+.delivery-state.is-in_transit { background: rgba(15, 111, 138, 0.14); color: #0f6f8a; }
+.delivery-state.is-delivered { background: rgba(22, 101, 52, 0.12); color: #166534; }
+.delivery-state.is-cancelled,
+.delivery-state.is-failed { background: rgba(185, 28, 28, 0.12); color: #b91c1c; }
+
 .sales-table-scroll .orders-board-table {
   width: 100%;
   min-width: 860px;

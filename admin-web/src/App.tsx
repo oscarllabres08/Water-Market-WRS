@@ -12,6 +12,7 @@ import { ExpensesPage } from './pages/ExpensesPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { InventoryPage } from './pages/InventoryPage';
 import { LoyaltyPage } from './pages/LoyaltyPage';
+import { DeliveryManagementPage } from './pages/DeliveryManagementPage';
 import { OrderBoardPage } from './pages/OrderBoardPage';
 import { PosPage } from './pages/PosPage';
 import { SalesAnalyticsPage as SalesPage } from './pages/SalesAnalyticsPage';
@@ -185,7 +186,7 @@ export default function App() {
         <Route path="pos" element={<PosPage />} />
         <Route path="orders" element={<OrderBoardPage mode="water" />} />
         <Route path="ice-orders" element={<OrderBoardPage mode="ice" />} />
-        <Route path="delivery" element={<OrderBoardPage mode="delivery" />} />
+        <Route path="delivery" element={<DeliveryManagementPage />} />
         <Route path="inventory" element={<InventoryPage />} />
         <Route path="containers" element={<ContainersPage />} />
         <Route path="loyalty" element={<LoyaltyPage />} />

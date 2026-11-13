@@ -38,8 +38,11 @@ type OrderAggRow = {
   delivery_fee?: number | null;
 };
 
+type CustomerSource = 'app' | 'walkin';
+
 type CustomerRow = {
   id: string;
+  source: CustomerSource;
   name: string;
   phone: string;
   address: string;
@@ -53,6 +56,32 @@ type CustomerRow = {
   containersOutstanding: number;
   containerIdentifierNotes: string | null;
 };
+
+function nameKey(name: string) {
+  return name.trim().toLowerCase();
+}
+
+function walkInId(name: string) {
+  return `walkin-${encodeURIComponent(nameKey(name) || 'customer')}`;
+}
+
+function blankCustomer(id: string, source: CustomerSource, name: string, phone = '', address = ''): CustomerRow {
+  return {
+    id,
+    source,
+    name: name.trim() || (source === 'walkin' ? 'Walk-in' : 'Customer'),
+    phone: phone.trim(),
+    address: address.trim(),
+    avatarPath: null,
+    orderCount: 0,
+    lastOrderIso: null,
+    hasUnpaidCredit: false,
+    unpaidDeliveredCount: 0,
+    unpaidDeliveredTotal: 0,
+    containersOutstanding: 0,
+    containerIdentifierNotes: null,
+  };
+}
 
 function daysAgoLabel(iso: string | null) {
   if (!iso) return 'Last order: —';
@@ -114,38 +143,25 @@ export default function CustomersScreen() {
     const byId = new Map<string, CustomerRow>();
     for (const p of (customers ?? []) as ProfileRow[]) {
       byId.set(p.user_id, {
-        id: p.user_id,
-        name: (p.display_name ?? 'Customer').trim() || 'Customer',
-        phone: (p.phone ?? '').trim(),
-        address: (p.address ?? '').trim(),
+        ...blankCustomer(p.user_id, 'app', (p.display_name ?? 'Customer').trim() || 'Customer', p.phone ?? '', p.address ?? ''),
         avatarPath: p.avatar_path ?? null,
-        orderCount: 0,
-        lastOrderIso: null,
-        hasUnpaidCredit: false,
-        unpaidDeliveredCount: 0,
-        unpaidDeliveredTotal: 0,
-        containersOutstanding: 0,
-        containerIdentifierNotes: null,
       });
     }
 
+    const appNames = new Set<string>();
+    for (const row of byId.values()) {
+      if (row.source === 'app') appNames.add(nameKey(row.name));
+    }
+
     for (const o of (orders ?? []) as OrderAggRow[]) {
+      const guestName = (o.customer_name ?? '').trim();
+      const guestPhone = (o.contact_number ?? '').trim();
+      const hasAccount = typeof o.customer_id === 'string' && o.customer_id.length > 0;
+      if (!hasAccount && (!guestName || appNames.has(nameKey(guestName)))) continue;
+      const linkedId = hasAccount ? (o.customer_id as string) : walkInId(guestName);
       const existing =
-        byId.get(o.customer_id) ??
-        ({
-          id: o.customer_id,
-          name: (o.customer_name ?? 'Customer').trim() || 'Customer',
-          phone: (o.contact_number ?? '').trim(),
-          address: (o.delivery_address ?? '').trim(),
-          avatarPath: null,
-          orderCount: 0,
-          lastOrderIso: null,
-          hasUnpaidCredit: false,
-          unpaidDeliveredCount: 0,
-          unpaidDeliveredTotal: 0,
-          containersOutstanding: 0,
-          containerIdentifierNotes: null,
-        } as CustomerRow);
+        byId.get(linkedId) ??
+        blankCustomer(linkedId, linkedId.startsWith('walkin-') ? 'walkin' : 'app', guestName || 'Walk-in', guestPhone, o.delivery_address ?? '');
 
       const orderTotal = orderGrandTotal(o.order_items, o.delivery_fee);
       const deliveredUnpaid = o.status === 'delivered' && o.payment_settled !== true;
@@ -160,10 +176,10 @@ export default function CustomersScreen() {
         o.payment_settled !== true &&
         o.status !== 'cancelled';
 
-      byId.set(o.customer_id, {
+      byId.set(linkedId, {
         ...existing,
-        name: existing.name || (o.customer_name ?? 'Customer'),
-        phone: existing.phone || (o.contact_number ?? ''),
+        name: existing.name || guestName || 'Walk-in',
+        phone: existing.phone || guestPhone,
         address: existing.address || (o.delivery_address ?? ''),
         avatarPath: existing.avatarPath,
         orderCount: nextCount,
@@ -174,6 +190,56 @@ export default function CustomersScreen() {
         containersOutstanding: existing.containersOutstanding,
         containerIdentifierNotes: existing.containerIdentifierNotes,
       });
+    }
+
+    const [posCustomers, posSales, hiddenPos, laundryBookings, laundrySales] = await Promise.all([
+      supabase.from('seller_pos_customers').select('customer_name_key,display_name').eq('seller_id', businessId),
+      supabase.from('pos_sales').select('customer_name,created_at').eq('seller_id', businessId).order('created_at', { ascending: false }).limit(800),
+      supabase.from('seller_hidden_pos_customers').select('customer_name_key').eq('seller_id', businessId),
+      supabase.from('laundry_bookings').select('customer_name,contact_number,address,created_at').eq('seller_id', businessId).order('created_at', { ascending: false }).limit(400),
+      supabase.from('laundry_sales').select('customer_name,created_at').eq('seller_id', businessId).order('created_at', { ascending: false }).limit(400),
+    ]);
+    const hiddenPosKeys = new Set(
+      ((hiddenPos.data ?? []) as { customer_name_key: string }[]).map((row) => row.customer_name_key)
+    );
+    for (const row of (posCustomers.data ?? []) as { customer_name_key: string; display_name: string }[]) {
+      const label = (row.display_name ?? '').trim();
+      if (!label || hiddenPosKeys.has(row.customer_name_key) || appNames.has(nameKey(label))) continue;
+      const id = walkInId(label);
+      if (!byId.has(id)) byId.set(id, blankCustomer(id, 'walkin', label));
+    }
+    for (const sale of (posSales.data ?? []) as { customer_name: string | null; created_at: string }[]) {
+      const label = (sale.customer_name ?? '').trim();
+      if (!label || hiddenPosKeys.has(nameKey(label)) || appNames.has(nameKey(label))) continue;
+      const id = walkInId(label);
+      const existing = byId.get(id) ?? blankCustomer(id, 'walkin', label);
+      const last = existing.lastOrderIso;
+      const nextLast = !last || new Date(sale.created_at).getTime() > new Date(last).getTime() ? sale.created_at : last;
+      byId.set(id, { ...existing, orderCount: existing.orderCount + 1, lastOrderIso: nextLast });
+    }
+    for (const booking of (laundryBookings.data ?? []) as { customer_name: string; contact_number: string | null; address: string | null; created_at: string }[]) {
+      const label = (booking.customer_name ?? '').trim();
+      if (!label || hiddenPosKeys.has(nameKey(label)) || appNames.has(nameKey(label))) continue;
+      const id = walkInId(label);
+      const existing = byId.get(id) ?? blankCustomer(id, 'walkin', label, booking.contact_number ?? '', booking.address ?? '');
+      const last = existing.lastOrderIso;
+      const nextLast = !last || new Date(booking.created_at).getTime() > new Date(last).getTime() ? booking.created_at : last;
+      byId.set(id, {
+        ...existing,
+        phone: existing.phone || (booking.contact_number ?? '').trim(),
+        address: existing.address || (booking.address ?? '').trim(),
+        orderCount: existing.orderCount + 1,
+        lastOrderIso: nextLast,
+      });
+    }
+    for (const sale of (laundrySales.data ?? []) as { customer_name: string | null; created_at: string }[]) {
+      const label = (sale.customer_name ?? '').trim();
+      if (!label || hiddenPosKeys.has(nameKey(label)) || appNames.has(nameKey(label))) continue;
+      const id = walkInId(label);
+      const existing = byId.get(id) ?? blankCustomer(id, 'walkin', label);
+      const last = existing.lastOrderIso;
+      const nextLast = !last || new Date(sale.created_at).getTime() > new Date(last).getTime() ? sale.created_at : last;
+      byId.set(id, { ...existing, orderCount: existing.orderCount + 1, lastOrderIso: nextLast });
     }
 
     let hiddenSet = new Set<string>();
@@ -190,7 +256,7 @@ export default function CustomersScreen() {
       setHiddenCount(hiddenSet.size);
     }
 
-    const allIds = Array.from(byId.keys());
+    const allIds = Array.from(byId.keys()).filter((id) => !id.startsWith('walkin-'));
     if (allIds.length) {
       const { data: balances, error: balErr } = await supabase
         .from('seller_customer_container_balance')
@@ -227,7 +293,7 @@ export default function CustomersScreen() {
     }
 
     const list = Array.from(byId.values())
-      .filter((r) => !hiddenSet.has(r.id))
+      .filter((r) => typeof r.id === 'string' && r.id.length > 0 && !hiddenSet.has(r.id) && !hiddenPosKeys.has(nameKey(r.name)))
       .sort((a, b) => {
       if (b.orderCount !== a.orderCount) return b.orderCount - a.orderCount;
       const bt = b.lastOrderIso ? new Date(b.lastOrderIso).getTime() : -1;
@@ -304,7 +370,7 @@ export default function CustomersScreen() {
                   Customers
                 </Text>
                 <Text variant="muted" weight="bold" style={{ marginTop: 2 }}>
-                  All registered customers
+                  Customer app and walk-in
                 </Text>
                 {hiddenCount > 0 ? (
                   <Pressable
@@ -392,14 +458,19 @@ export default function CustomersScreen() {
           return (
           <Animated.View entering={FadeInDown.duration(220).delay(20 * index)}>
             <Pressable
-              onPress={() =>
+              onPress={() => {
+                if (!item.id) return;
                 router.push({
                   pathname: '/customer/[customerKey]',
                   params: {
                     customerKey: item.id,
+                    source: item.source,
+                    name: item.name,
+                    phone: item.phone,
+                    address: item.address,
                   },
-                })
-              }
+                });
+              }}
             >
               <Card>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
@@ -431,6 +502,24 @@ export default function CustomersScreen() {
                   <View style={{ flex: 1 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                       <Text weight="extrabold">{item.name}</Text>
+                      <View
+                        style={{
+                          paddingVertical: 4,
+                          paddingHorizontal: 8,
+                          borderRadius: 999,
+                          borderWidth: 1,
+                          borderColor: item.source === 'walkin' ? 'rgba(245,158,11,0.45)' : 'rgba(0,114,240,0.28)',
+                          backgroundColor: item.source === 'walkin' ? 'rgba(245,158,11,0.12)' : 'rgba(0,114,240,0.08)',
+                        }}
+                      >
+                        <Text
+                          variant="chip"
+                          weight="extrabold"
+                          style={{ color: item.source === 'walkin' ? theme.colors.warning : theme.colors.primary }}
+                        >
+                          {item.source === 'walkin' ? 'Walk-in' : 'Customer app'}
+                        </Text>
+                      </View>
                       <View
                         style={{
                           paddingVertical: 4,

@@ -178,7 +178,14 @@ function AuthGate() {
     if (checkingAccess) return;
     const inAuth = segments[0] === '(auth)';
     const inTabs = segments[0] === '(tabs)';
-    const onAppScreen = inTabs || segments[0] === 'order' || segments[0] === 'modal';
+    const onAppScreen =
+      inTabs ||
+      segments[0] === 'order' ||
+      segments[0] === 'customer' ||
+      segments[0] === 'product' ||
+      segments[0] === 'pos' ||
+      segments[0] === 'sales-report' ||
+      segments[0] === 'modal';
 
     if (!canEnterApp) {
       if (!inAuth) router.replace('/(auth)/sign-in');

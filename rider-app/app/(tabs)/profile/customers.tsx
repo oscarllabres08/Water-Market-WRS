@@ -94,6 +94,7 @@ export default function ProfileCustomersListScreen() {
     }
 
     for (const o of (orders ?? []) as { customer_id: string; customer_name: string; contact_number: string }[]) {
+      if (typeof o.customer_id !== 'string' || !o.customer_id) continue;
       const existing = byId.get(o.customer_id) ?? {
         id: o.customer_id,
         name: (o.customer_name ?? 'Customer').trim() || 'Customer',
@@ -133,7 +134,9 @@ export default function ProfileCustomersListScreen() {
       });
     }
 
-    const list = Array.from(byId.values()).filter((r) => r.orderCount > 0);
+    const list = Array.from(byId.values()).filter(
+      (r) => typeof r.id === 'string' && r.id.length > 0 && r.orderCount > 0
+    );
     list.sort((a, b) => {
       if (b.outstanding !== a.outstanding) return b.outstanding - a.outstanding;
       if (b.orderCount !== a.orderCount) return b.orderCount - a.orderCount;
@@ -313,9 +316,10 @@ function BorrowedCustomerCard({
   return (
     <Card>
       <Pressable
-        onPress={() =>
-          router.push({ pathname: '/customer/[customerKey]', params: { customerKey: item.id } })
-        }
+        onPress={() => {
+          if (!item.id) return;
+          router.push({ pathname: '/customer/[customerKey]', params: { customerKey: item.id } });
+        }}
       >
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <View

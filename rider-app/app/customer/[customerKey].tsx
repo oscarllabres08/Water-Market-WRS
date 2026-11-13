@@ -42,9 +42,11 @@ export default function CustomerDetailsScreen() {
     phone?: string;
     address?: string;
     lastOrder?: string;
+    source?: string;
   }>();
 
   const customerId = safeString(params.customerKey);
+  const isWalkIn = safeString(params.source) === 'walkin' || customerId.startsWith('walkin-');
   const sellerId = businessId ?? '';
   const [name, setName] = useState('Customer');
   const [phone, setPhone] = useState('');
@@ -88,6 +90,74 @@ export default function CustomerDetailsScreen() {
     if (!sellerId || !customerId) return;
     setError(null);
     setLoading(true);
+    if (isWalkIn) {
+      const decoded = (() => {
+        if (!customerId.startsWith('walkin-')) return '';
+        try {
+          return decodeURIComponent(customerId.slice('walkin-'.length));
+        } catch {
+          return '';
+        }
+      })();
+      const walkName = safeString(params.name).trim() || decoded;
+      const walkPhone = safeString(params.phone).trim();
+      const walkAddress = safeString(params.address).trim();
+      const [ordersRes, salesRes, laundryRes, laundrySalesRes] = await Promise.all([
+        walkName
+          ? supabase
+              .from('orders')
+              .select('created_at,customer_name,contact_number,delivery_address')
+              .eq('seller_id', sellerId)
+              .is('customer_id', null)
+              .ilike('customer_name', walkName)
+              .order('created_at', { ascending: false })
+              .limit(1)
+          : Promise.resolve({ data: [], error: null }),
+        walkName
+          ? supabase
+              .from('pos_sales')
+              .select('created_at,customer_name')
+              .eq('seller_id', sellerId)
+              .ilike('customer_name', walkName)
+              .order('created_at', { ascending: false })
+              .limit(1)
+          : Promise.resolve({ data: [], error: null }),
+        walkName
+          ? supabase
+              .from('laundry_bookings')
+              .select('created_at,customer_name,contact_number,address')
+              .eq('seller_id', sellerId)
+              .ilike('customer_name', walkName)
+              .order('created_at', { ascending: false })
+              .limit(1)
+          : Promise.resolve({ data: [], error: null }),
+        walkName
+          ? supabase
+              .from('laundry_sales')
+              .select('created_at,customer_name')
+              .eq('seller_id', sellerId)
+              .ilike('customer_name', walkName)
+              .order('created_at', { ascending: false })
+              .limit(1)
+          : Promise.resolve({ data: [], error: null }),
+      ]);
+      const lastOrder = (ordersRes.data ?? [])[0] as { created_at?: string; contact_number?: string; delivery_address?: string } | undefined;
+      const lastSale = (salesRes.data ?? [])[0] as { created_at?: string } | undefined;
+      const lastLaundry = (laundryRes.data ?? [])[0] as { created_at?: string; contact_number?: string; address?: string } | undefined;
+      const lastLaundrySale = (laundrySalesRes.data ?? [])[0] as { created_at?: string } | undefined;
+      const lastIso = [lastOrder?.created_at, lastSale?.created_at, lastLaundry?.created_at, lastLaundrySale?.created_at]
+        .filter((value): value is string => typeof value === 'string' && value.length > 0)
+        .sort()
+        .at(-1) ?? '';
+      setName(walkName || 'Walk-in');
+      setPhone(walkPhone || lastOrder?.contact_number || lastLaundry?.contact_number || '');
+      setAddress(walkAddress || lastOrder?.delivery_address || lastLaundry?.address || '');
+      setLastOrderIso(lastIso);
+      setContainersOutstanding(0);
+      setUnpaidUtangOrderIds([]);
+      setLoading(false);
+      return;
+    }
     const [
       { data: prof, error: pErr },
       { data: last, error: oErr },
@@ -144,7 +214,7 @@ export default function CustomerDetailsScreen() {
     setAddress(String(fullAddress || ''));
     setLastOrderIso(String((last as any)?.created_at ?? ''));
     setLoading(false);
-  }, [sellerId, customerId]);
+  }, [sellerId, customerId, isWalkIn, params.name, params.phone, params.address]);
 
   async function callCustomer() {
     if (!phone.trim()) return;
@@ -244,6 +314,24 @@ export default function CustomerDetailsScreen() {
     if (!sellerId || !customerId) return;
     setRemovingFromList(true);
     try {
+      if (isWalkIn) {
+        const key = name.trim().toLowerCase();
+        if (!key) {
+          Alert.alert('Could not remove', 'This walk-in has no name to hide.');
+          return;
+        }
+        const { error: hideErr } = await supabase.from('seller_hidden_pos_customers').insert({
+          seller_id: sellerId,
+          customer_name_key: key,
+        });
+        if (hideErr) {
+          Alert.alert('Could not remove', hideErr.message);
+          return;
+        }
+        setRemoveFromListModalOpen(false);
+        router.back();
+        return;
+      }
       const { error: hideErr } = await supabase.from('seller_hidden_customers').insert({
         seller_id: sellerId,
         customer_id: customerId,
@@ -278,7 +366,7 @@ export default function CustomerDetailsScreen() {
   }
 
   useEffect(() => {
-    if (!sellerId || !customerId) return;
+    if (!sellerId || !customerId || isWalkIn) return;
     void refreshCustomer();
     const channel = supabase
       .channel(`seller-customer-detail-${sellerId}-${customerId}`)
@@ -309,7 +397,7 @@ export default function CustomerDetailsScreen() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [sellerId, customerId, refreshCustomer]);
+  }, [sellerId, customerId, refreshCustomer, isWalkIn]);
 
   return (
     <Screen>
@@ -317,7 +405,7 @@ export default function CustomerDetailsScreen() {
 
       <ScrollView contentContainerStyle={{ paddingTop: theme.spacing.md, gap: theme.spacing.sm, paddingBottom: 28 }}>
         <Animated.View entering={FadeInDown.duration(220)}>
-          <PressableHeader title={name} onBack={() => router.back()} />
+          <PressableHeader title={name} subtitle={isWalkIn ? 'Walk-in' : 'Customer app'} onBack={() => router.back()} />
         </Animated.View>
 
         {toast ? (
@@ -444,6 +532,7 @@ export default function CustomerDetailsScreen() {
                     </Text>
                   </Button>
                 </View>
+                {isWalkIn ? null : (
                 <View style={{ flex: 1 }}>
                   <Button
                     variant="ghost"
@@ -457,6 +546,7 @@ export default function CustomerDetailsScreen() {
                     </Text>
                   </Button>
                 </View>
+                )}
               </View>
               <Button variant="ghost" onPress={openInGoogleMaps}>
                 <Ionicons name="map-outline" size={20} color={theme.colors.text} />
@@ -536,7 +626,7 @@ export default function CustomerDetailsScreen() {
   );
 }
 
-function PressableHeader({ title, onBack }: { title: string; onBack: () => void }) {
+function PressableHeader({ title, subtitle, onBack }: { title: string; subtitle: string; onBack: () => void }) {
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
       <Pressable
@@ -563,7 +653,7 @@ function PressableHeader({ title, onBack }: { title: string; onBack: () => void 
           {title}
         </Text>
         <Text variant="muted" weight="bold" style={{ marginTop: 4, fontSize: 14 }}>
-          Customer
+          {subtitle}
         </Text>
       </View>
     </View>
