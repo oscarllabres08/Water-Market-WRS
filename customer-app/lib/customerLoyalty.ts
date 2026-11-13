@@ -1,5 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+/** Points needed in one store balance for 1 free refill voucher. */
+export const FREE_REFILL_POINTS = 5;
+
 /** Points & seller context so Profile/Loyalty match where orders (and triggers) credited points. */
 
 export type CustomerLoyaltySummary = {
@@ -22,9 +25,9 @@ export async function fetchCustomerLoyaltySummary(supabase: SupabaseClient, cust
 
   const totalPoints = balanceRows.reduce((s, r) => s + r.points_balance, 0);
 
-  /** Seller to pass to redeem RPC — account with ≥10 pts, else best balance, else last order seller, else first owner. */
+  /** Seller to pass to redeem RPC — account with enough points, else best balance, else last order seller, else first owner. */
   let redeemSellerId: string | null =
-    [...balanceRows].sort((a, b) => b.points_balance - a.points_balance).find((r) => r.points_balance >= 10)?.seller_id ?? null;
+    [...balanceRows].sort((a, b) => b.points_balance - a.points_balance).find((r) => r.points_balance >= FREE_REFILL_POINTS)?.seller_id ?? null;
 
   if (!redeemSellerId) {
     const best = [...balanceRows].sort((a, b) => b.points_balance - a.points_balance)[0];

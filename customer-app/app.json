@@ -4,7 +4,7 @@
     "slug": "watermarket-customer",
     "version": "1.0.1",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/logo.png",
     "scheme": "watermarketcustomer",
     "userInterfaceStyle": "automatic",
     "androidStatusBar": {
@@ -13,7 +13,7 @@
       "translucent": false
     },
     "splash": {
-      "image": "./assets/icon.png",
+      "image": "./assets/logo.png",
       "resizeMode": "contain",
       "backgroundColor": "#FFFFFF"
     },
@@ -26,7 +26,7 @@
       "softwareKeyboardLayoutMode": "resize",
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/logo.png",
         "backgroundColor": "#FFFFFF"
       },
       "package": "com.watermarket.customer",
@@ -43,7 +43,7 @@
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/icon.png"
+      "favicon": "./assets/logo.png"
     },
     "plugins": [
       "expo-router",

@@ -4,7 +4,7 @@ import { Stack, useRouter, useSegments, type Href } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useCallback, useEffect } from 'react';
 import Animated, { FadeInDown, FadeOutUp } from 'react-native-reanimated';
-import { Pressable } from 'react-native';
+import { Pressable, Text as RNText, View } from 'react-native';
 
 import { Ionicons } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
@@ -16,6 +16,7 @@ import {
 } from '@expo-google-fonts/nunito';
 
 import { ensureAndroidNotificationChannels } from '../lib/notificationChannels';
+import { supabaseConfigError } from '../lib/supabase';
 import { getNotificationRuntimePrefs } from '../lib/notificationRuntime';
 import { AuthProvider, useAuth } from '../providers/AuthProvider';
 import { NotificationsProvider, useNotifications } from '../providers/NotificationsProvider';
@@ -56,6 +57,15 @@ Notifications.setNotificationHandler({
   },
 });
 
+function ConfigBlock() {
+  return (
+    <View style={{ flex: 1, justifyContent: 'center', padding: 24, backgroundColor: '#F3F8FC' }}>
+      <RNText style={{ fontSize: 20, fontWeight: '700', color: '#0B3A96' }}>WaterMarket cannot open</RNText>
+      <RNText style={{ marginTop: 10, fontSize: 15, lineHeight: 22, color: '#16325C' }}>{supabaseConfigError}</RNText>
+    </View>
+  );
+}
+
 export default function RootLayout() {
   const [loaded, error] = useFonts({
     Nunito_400Regular,
@@ -66,19 +76,21 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
-    if (error) throw error;
+    if (error && !supabaseConfigError) throw error;
   }, [error]);
 
   useEffect(() => {
-    if (loaded) SplashScreen.hideAsync();
+    if (supabaseConfigError || loaded) void SplashScreen.hideAsync();
   }, [loaded]);
 
   useEffect(() => {
+    if (supabaseConfigError) return;
     void ensureAndroidNotificationChannels().catch((e) => {
       if (__DEV__) console.warn('[notifications] channel setup:', e);
     });
   }, []);
 
+  if (supabaseConfigError) return <ConfigBlock />;
   if (!loaded) return null;
   return <RootLayoutNav />;
 }

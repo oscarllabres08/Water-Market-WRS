@@ -79,6 +79,14 @@ export function SettingsPage() {
   const [clearError, setClearError] = useState<string | null>(null);
   const [clearSuccess, setClearSuccess] = useState<string | null>(null);
 
+  const [storeLatitude, setStoreLatitude] = useState<number | null>(null);
+  const [storeLongitude, setStoreLongitude] = useState<number | null>(null);
+  const [storeAddress, setStoreAddress] = useState('');
+  const [storeLocationLoading, setStoreLocationLoading] = useState(true);
+  const [storeLocating, setStoreLocating] = useState(false);
+  const [storeLocationError, setStoreLocationError] = useState<string | null>(null);
+  const [storeLocationSuccess, setStoreLocationSuccess] = useState<string | null>(null);
+
   const onNotifToggle = useCallback(
     (enabled: boolean) => {
       void updateNotificationPrefs({
@@ -134,6 +142,87 @@ export function SettingsPage() {
   useEffect(() => {
     void loadDownloadPinStatus();
   }, [loadDownloadPinStatus]);
+
+  const loadStoreLocation = useCallback(async () => {
+    if (!businessId) {
+      setStoreLocationLoading(false);
+      return;
+    }
+    setStoreLocationLoading(true);
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('latitude,longitude,store_address')
+      .eq('user_id', businessId)
+      .maybeSingle();
+    if (error) {
+      setStoreLocationError(error.message);
+    } else {
+      setStoreLatitude(typeof data?.latitude === 'number' ? data.latitude : null);
+      setStoreLongitude(typeof data?.longitude === 'number' ? data.longitude : null);
+      setStoreAddress(String(data?.store_address ?? ''));
+    }
+    setStoreLocationLoading(false);
+  }, [businessId]);
+
+  useEffect(() => {
+    void loadStoreLocation();
+  }, [loadStoreLocation]);
+
+  async function useCurrentStoreLocation() {
+    if (!businessId) {
+      setStoreLocationError('Missing store account.');
+      return;
+    }
+    if (!navigator.geolocation) {
+      setStoreLocationError('This browser cannot read your location.');
+      return;
+    }
+    setStoreLocating(true);
+    setStoreLocationError(null);
+    setStoreLocationSuccess(null);
+    try {
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 12000,
+          maximumAge: 15000,
+        });
+      });
+      const latitude = position.coords.latitude;
+      const longitude = position.coords.longitude;
+      let address = `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
+      try {
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}&addressdetails=1`,
+          { headers: { Accept: 'application/json', 'Accept-Language': 'en' } }
+        );
+        if (response.ok) {
+          const data = (await response.json()) as { display_name?: string };
+          if (data.display_name) address = data.display_name;
+        }
+      } catch {
+        // Coordinates are still saved when the street name cannot be looked up.
+      }
+      const { error } = await supabase
+        .from('profiles')
+        .update({ latitude, longitude, store_address: address })
+        .eq('user_id', businessId);
+      if (error) throw error;
+      setStoreLatitude(latitude);
+      setStoreLongitude(longitude);
+      setStoreAddress(address);
+      setStoreLocationSuccess('Store location saved. Routes to customers start from here.');
+    } catch (err) {
+      const geo = err as GeolocationPositionError;
+      if (typeof geo?.code === 'number') {
+        setStoreLocationError(geo.code === 1 ? 'Location permission was denied.' : 'Could not get your current location.');
+      } else {
+        setStoreLocationError(err instanceof Error ? err.message : 'Could not save the store location.');
+      }
+    } finally {
+      setStoreLocating(false);
+    }
+  }
 
   async function onSetDownloadPin(e: FormEvent) {
     e.preventDefault();
@@ -424,10 +513,34 @@ export function SettingsPage() {
       {section === 'general' ? (
       <div className="settings-board">
       <div className="settings-board-main">
+      <section className="settings-store-card">
+        <div className="settings-store-main">
+          <span className="settings-section-icon" aria-hidden>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path d="M12 21s7-6.2 7-11a7 7 0 10-14 0c0 4.8 7 11 7 11z" stroke="currentColor" strokeWidth="1.8" />
+              <circle cx="12" cy="10" r="2.2" stroke="currentColor" strokeWidth="1.8" />
+            </svg>
+          </span>
+          <div className="settings-store-copy">
+            <strong>Store location</strong>
+            <p>
+              {storeLocationLoading
+                ? 'Loading store location…'
+                : storeLatitude != null && storeLongitude != null
+                  ? storeAddress || `${storeLatitude.toFixed(5)}, ${storeLongitude.toFixed(5)}`
+                  : 'No pin yet. Routes still use the station address.'}
+            </p>
+          </div>
+        </div>
+        <button type="button" className="btn btn-primary btn-sm" disabled={storeLocating || storeLocationLoading} onClick={() => void useCurrentStoreLocation()}>
+          {storeLocating ? 'Getting location…' : 'Use current location'}
+        </button>
+        {storeLocationError ? <p className="error-text module-alert settings-store-note">{storeLocationError}</p> : null}
+        {storeLocationSuccess ? <p className="success-text module-alert settings-store-note">{storeLocationSuccess}</p> : null}
+      </section>
       <SettingsSection
         title="Seller app download PIN"
         subtitle="PIN required on the public download page to unlock the Seller app APK"
-        defaultOpen
         icon={
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
             <rect x="5" y="11" width="14" height="10" rx="2" stroke="currentColor" strokeWidth="1.8" />

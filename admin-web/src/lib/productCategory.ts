@@ -1,8 +1,8 @@
 export type SalesCategoryKey = 'water' | 'ice' | 'containers' | 'others' | 'accessories';
 
-export function categoryFromProductName(name: string, dbCategory?: 'water' | 'other' | 'ice' | null): SalesCategoryKey {
+export function categoryFromProductName(name: string, dbCategory?: 'water' | 'other' | 'ice' | 'bottled_water' | null): SalesCategoryKey {
   if (dbCategory === 'ice') return 'ice';
-  if (dbCategory === 'water') return 'water';
+  if (dbCategory === 'water' || dbCategory === 'bottled_water') return 'water';
   const n = name.toLowerCase();
   if (/water|refill|mineral|alkaline|distilled/.test(n) && !/container|gallon jug|dispenser/.test(n)) {
     return 'water';

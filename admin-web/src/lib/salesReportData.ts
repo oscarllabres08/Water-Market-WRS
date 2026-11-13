@@ -6,6 +6,7 @@ import {
 } from './orderSalesEligible';
 import { formatPosPaymentMethod } from './posPayment';
 import { categoryFromProductName, type SalesCategoryKey } from './productCategory';
+import { type CatalogCategory } from './inventoryStock';
 import { supabase } from './supabase';
 
 export function formatSalePaymentMethod(type: 'online' | 'walk-in', method: string | null | undefined): string {
@@ -192,11 +193,11 @@ function initTimeline(from: Date, to: Date, period: DashboardPeriod): Map<string
   return map;
 }
 
-async function loadProductCategories(businessId: string): Promise<Map<string, 'water' | 'other' | 'ice'>> {
+async function loadProductCategories(businessId: string): Promise<Map<string, CatalogCategory>> {
   const { data } = await supabase.from('products').select('id,category').eq('seller_id', businessId);
-  const map = new Map<string, 'water' | 'other' | 'ice'>();
+  const map = new Map<string, CatalogCategory>();
   for (const p of data ?? []) {
-    const row = p as { id: string; category: 'water' | 'other' | 'ice' };
+    const row = p as { id: string; category: CatalogCategory };
     map.set(row.id, row.category);
   }
   return map;
@@ -205,7 +206,7 @@ async function loadProductCategories(businessId: string): Promise<Map<string, 'w
 function aggregate(
   orders: OrderRow[],
   posSales: PosRow[],
-  productCats: Map<string, 'water' | 'other' | 'ice'>,
+  productCats: Map<string, CatalogCategory>,
   period: DashboardPeriod,
   from: Date,
   to: Date

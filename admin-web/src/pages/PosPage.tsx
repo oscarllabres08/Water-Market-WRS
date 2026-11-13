@@ -6,7 +6,7 @@ import { BoxIcon, DropIcon, IceIcon } from '../components/UiIcons';
 import { money, publicWrsAssetUrl } from '../lib/format';
 import { recordContainerLend, resolveProfileUserIdForPosName } from '../lib/containerLend';
 import { customerNameKey, loadPosCustomerNames, savePosWalkInCustomer, type PosCustomerOption } from '../lib/posCustomerNames';
-import { isLowStock, stockLabel, tracksStock } from '../lib/inventoryStock';
+import { isLowStock, stockLabel, tracksStock, type CatalogCategory } from '../lib/inventoryStock';
 import { awardPosSaleLoyalty } from '../lib/loyaltyProgram';
 import { type PosPaymentMethod } from '../lib/posPayment';
 import { supabase } from '../lib/supabase';
@@ -16,7 +16,7 @@ type ProductRow = {
   name: string;
   price: number;
   is_available: boolean;
-  category: 'water' | 'other' | 'ice';
+  category: CatalogCategory;
   stock_quantity: number | null;
   image_url?: string | null;
   earn_loyalty_points?: boolean;
@@ -30,23 +30,23 @@ type CartLine = {
   image_url?: string | null;
 };
 
-type PosCategory = 'all' | 'water' | 'ice' | 'others';
+type PosCategory = 'all' | CatalogCategory;
 
 function productMatchesCategory(p: ProductRow, cat: PosCategory): boolean {
   if (cat === 'all') return true;
-  if (cat === 'water') return p.category === 'water';
-  if (cat === 'ice') return p.category === 'ice';
-  return p.category === 'other';
+  return p.category === cat;
 }
 
 const POS_CATEGORIES: { id: PosCategory; label: string }[] = [
   { id: 'all', label: 'All' },
   { id: 'water', label: 'Water' },
+  { id: 'bottled_water', label: 'Bottled Water' },
   { id: 'ice', label: 'Ice' },
 ];
 
 function categoryLabel(category: ProductRow['category']) {
   if (category === 'ice') return 'Ice';
+  if (category === 'bottled_water') return 'Bottled Water';
   if (category === 'water') return 'Water';
   return 'Other';
 }
@@ -528,13 +528,13 @@ export function PosPage() {
                       <img src={img} alt="" />
                     ) : (
                       <span className={`pos-product-placeholder pos-product-glyph--${p.category}`} aria-hidden>
-                        {p.category === 'ice' ? <IceIcon /> : p.category === 'water' ? <DropIcon /> : <BoxIcon />}
+                        {p.category === 'ice' ? <IceIcon /> : p.category === 'other' ? <BoxIcon /> : <DropIcon />}
                       </span>
                     )}
                   </div>
                   <div className="pos-product-top">
                     <span className={`pos-product-glyph pos-product-glyph--${p.category}`} aria-hidden>
-                      {p.category === 'ice' ? <IceIcon /> : p.category === 'water' ? <DropIcon /> : <BoxIcon />}
+                      {p.category === 'ice' ? <IceIcon /> : p.category === 'other' ? <BoxIcon /> : <DropIcon />}
                     </span>
                     <span className={`pos-product-badge pos-product-badge--${p.category}`}>{categoryLabel(p.category)}</span>
                   </div>

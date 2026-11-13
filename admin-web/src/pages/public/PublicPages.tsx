@@ -170,6 +170,12 @@ export function PublicLayout() {
   }, [menu]);
 
   useLayoutEffect(() => {
+    window.scrollTo(0, 0);
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+  }, [location.pathname]);
+
+  useLayoutEffect(() => {
     const main = document.querySelector('.wm-public main');
     if (!main) return;
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -402,7 +408,7 @@ export function HomePage() {
             </span>
           </Link>
           <Link to="/ice-cubes" className="wm-shot wm-shot-ice">
-            <img src="/store.png" alt="" />
+            <img src="/Ice.png" alt="Bags of ice in the WaterMarket freezer" />
             <span>
               <strong>Ice Cubes</strong>
               <small>Keep it Cool.</small>
@@ -410,7 +416,7 @@ export function HomePage() {
             </span>
           </Link>
           <Link to="/laundry" className="wm-shot wm-shot-laundry">
-            <img src="/store.png" alt="" />
+            <img src="/laundry.avif" alt="WaterMarket laundry service" />
             <span>
               <strong>Laundry</strong>
               <small>Clean, Fresh, Ready.</small>
@@ -461,8 +467,8 @@ function MarkIcon({ name }: { name: 'target' | 'eye' | 'gem' | 'people' }) {
 
 const ABOUT_OFFERS = [
   { to: '/water-refilling', title: 'Water Refilling', note: 'Pure and safe drinking water for your family.', icon: 'drop' as const, image: '/store2.png', wash: '' },
-  { to: '/ice-cubes', title: 'Ice Cubes', note: 'Stay cool with our high-quality ice.', icon: 'ice' as const, image: '', wash: 'wm-offer-ice' },
-  { to: '/laundry', title: 'Laundry', note: 'Clean and fresh, always.', icon: 'shirt' as const, image: '', wash: 'wm-offer-wash' },
+  { to: '/ice-cubes', title: 'Ice Cubes', note: 'Stay cool with our high-quality ice.', icon: 'ice' as const, image: '/Ice.png', wash: 'wm-offer-ice' },
+  { to: '/laundry', title: 'Laundry', note: 'Clean and fresh, always.', icon: 'shirt' as const, image: '/laundry.avif', wash: 'wm-offer-wash' },
 ];
 
 const ABOUT_MARKS = [
@@ -830,7 +836,7 @@ export function WaterRefillingPage() {
             <h2 id="rider-pin-title">Rider app PIN</h2>
             <p>Authorized WaterMarket riders only. The PIN is set in WRS Settings.</p>
             <label htmlFor="rider-pin">PIN</label>
-            <input id="rider-pin" type="password" value={pin} onChange={(event) => setPin(event.target.value)} required />
+            <input id="rider-pin" type="password" value={pin} onChange={(event) => setPin(event.target.value)} placeholder="Enter the rider PIN" required />
             {error ? <p className="wm-error">{error}</p> : null}
             <button className="wm-btn wm-btn-block" type="submit" disabled={busy}>{busy ? 'Checking…' : 'Unlock download'}</button>
           </form>
@@ -838,6 +844,83 @@ export function WaterRefillingPage() {
       ) : null}
     </main>
   );
+}
+
+type CurrentPin = { latitude: number; longitude: number; address: string };
+
+function readPosition(options: PositionOptions): Promise<GeolocationPosition> {
+  return new Promise((resolve, reject) => {
+    navigator.geolocation.getCurrentPosition(resolve, reject, options);
+  });
+}
+
+function locationError(err: unknown, fallback: string) {
+  if (typeof err === 'object' && err && 'code' in err && (err as { code: number }).code === 1) {
+    return 'Allow location access so we can fill your address.';
+  }
+  return fallback;
+}
+
+function uniqueParts(parts: Array<string | null | undefined>) {
+  return parts
+    .map((part) => (part ?? '').trim())
+    .filter((part, index, all) => part && all.findIndex((item) => item.toLowerCase() === part.toLowerCase()) === index);
+}
+
+async function reverseAddress(latitude: number, longitude: number): Promise<string> {
+  try {
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}&addressdetails=1`,
+      { headers: { Accept: 'application/json', 'Accept-Language': 'en' } }
+    );
+    if (response.ok) {
+      const data = (await response.json()) as { display_name?: string; address?: Record<string, string> };
+      const place = data.address ?? {};
+      const parts = uniqueParts([
+        place.house_number,
+        place.road,
+        place.suburb || place.neighbourhood || place.village || place.quarter,
+        place.city || place.town || place.municipality,
+        place.state,
+      ]);
+      if (parts.length > 0) return parts.join(', ');
+      if (data.display_name) return data.display_name;
+    }
+  } catch {
+    // Use the city lookup when the street service is unavailable.
+  }
+  try {
+    const response = await fetch(
+      `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`
+    );
+    if (response.ok) {
+      const data = (await response.json()) as { locality?: string; city?: string; principalSubdivision?: string };
+      const parts = uniqueParts([data.locality, data.city, data.principalSubdivision]);
+      if (parts.length > 0) return parts.join(', ');
+    }
+  } catch {
+    // The pin is still saved when the street name cannot be looked up.
+  }
+  return `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
+}
+
+async function readCurrentPlace(): Promise<CurrentPin> {
+  if (!navigator.geolocation) throw new Error('This browser cannot read your location.');
+  let position: GeolocationPosition;
+  try {
+    position = await readPosition({ enableHighAccuracy: true, timeout: 12000, maximumAge: 15000 });
+  } catch (err) {
+    const denied = locationError(err, '');
+    if (denied) throw new Error(denied);
+    try {
+      position = await readPosition({ enableHighAccuracy: false, timeout: 15000, maximumAge: 60000 });
+    } catch (retry) {
+      throw new Error(locationError(retry, 'Could not get your current location.'));
+    }
+  }
+  const latitude = position.coords.latitude;
+  const longitude = position.coords.longitude;
+  return { latitude, longitude, address: await reverseAddress(latitude, longitude) };
 }
 
 type IceProduct = {
@@ -854,9 +937,8 @@ export function IceCubesPage() {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
-  const [date, setDate] = useState('');
-  const [time, setTime] = useState('');
-  const [activeId, setActiveId] = useState<string | null>(null);
+  const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [locating, setLocating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [orderId, setOrderId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -874,39 +956,80 @@ export function IceCubesPage() {
       });
   }, []);
 
-  const chosen = useMemo(
-    () => products.filter((product) => (qty[product.id] ?? 0) > 0).map((product) => ({ product_id: product.id, quantity: qty[product.id] })),
+  const lines = useMemo(
+    () =>
+      products
+        .filter((product) => (qty[product.id] ?? 0) > 0)
+        .map((product) => {
+          const quantity = qty[product.id];
+          const price = Number(product.price);
+          return { product, quantity, price, line: price * quantity };
+        }),
     [products, qty]
   );
+  const chosen = useMemo(
+    () => lines.map((line) => ({ product_id: line.product.id, quantity: line.quantity })),
+    [lines]
+  );
+  const orderTotal = lines.reduce((sum, line) => sum + line.line, 0);
 
-  function orderProduct(id: string) {
-    setActiveId(id);
-    setQty((current) => ({ ...current, [id]: Math.max(1, current[id] ?? 0) }));
+  function addToOrder(id: string) {
+    const product = products.find((item) => item.id === id);
+    if (!product || (product.stock_quantity != null && product.stock_quantity <= 0)) return;
+    setQty((current) => {
+      const cap = product.stock_quantity;
+      const next = (current[id] ?? 0) + 1;
+      const quantity = cap == null ? next : Math.min(next, cap);
+      return { ...current, [id]: quantity };
+    });
     document.getElementById('ice-order')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
-  function changeActiveQty(next: number) {
-    if (!activeId) return;
-    const product = products.find((item) => item.id === activeId);
+  function changeQty(id: string, next: number) {
+    const product = products.find((item) => item.id === id);
     const cap = product?.stock_quantity;
-    const quantity = cap == null ? Math.max(1, next) : Math.min(Math.max(1, next), Math.max(cap, 1));
-    setQty((current) => ({ ...current, [activeId]: quantity }));
+    const quantity = cap == null ? Math.max(0, next) : Math.min(Math.max(0, next), Math.max(cap, 0));
+    setQty((current) => ({ ...current, [id]: quantity }));
+  }
+
+  function useCurrentLocation() {
+    setLocating(true);
+    setError(null);
+    void readCurrentPlace()
+      .then((place) => {
+        setCoords({ latitude: place.latitude, longitude: place.longitude });
+        setAddress(place.address);
+      })
+      .catch((err: unknown) => {
+        setError(err instanceof Error ? err.message : 'Could not get your current location.');
+      })
+      .finally(() => setLocating(false));
   }
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     setBusy(true);
     setError(null);
-    const when = [date, time].filter(Boolean).join(' ');
-    const deliveryNote = when ? `Preferred delivery: ${when}` : '';
-    const { data, error: err } = await supabase.rpc('create_public_ice_order', {
+    const order = {
       p_customer_name: name,
       p_contact_number: phone,
       p_delivery_address: address,
       p_landmark: '',
-      p_notes: deliveryNote,
+      p_notes: '',
       p_items: chosen,
+    };
+    let result = await supabase.rpc('create_public_ice_order', {
+      ...order,
+      p_latitude: coords?.latitude ?? null,
+      p_longitude: coords?.longitude ?? null,
     });
+    if (result.error && coords && /could not find the function|schema cache|PGRST202/i.test(result.error.message)) {
+      result = await supabase.rpc('create_public_ice_order', {
+        ...order,
+        p_notes: `pin:${coords.latitude},${coords.longitude}`,
+      });
+    }
+    const { data, error: err } = result;
     setBusy(false);
     if (err) {
       setError(friendly(err.message) ?? 'Ice ordering is not open yet. The station still needs the database update.');
@@ -915,8 +1038,11 @@ export function IceCubesPage() {
     setOrderId((data as { order_id?: string } | null)?.order_id ?? 'saved');
   }
 
-  const active = products.find((product) => product.id === activeId) ?? null;
-  const activeQty = active ? qty[active.id] ?? 1 : 1;
+  function orderAgain() {
+    setOrderId(null);
+    setQty({});
+    setError(null);
+  }
 
   return (
     <main className="wm-ice">
@@ -932,10 +1058,7 @@ export function IceCubesPage() {
               <p className="wm-lead">Perfect for your business, events, and everyday needs.</p>
               <div className="wm-ice-actions">
                 <a className="wm-btn" href="#ice-order">
-                  <Icon name="calendar" /> Book Now <span aria-hidden>→</span>
-                </a>
-                <a className="wm-btn wm-btn-line" href="#ice-products">
-                  <Icon name="ice" /> Order Now
+                  <Icon name="ice" /> Place order <span aria-hidden>→</span>
                 </a>
               </div>
             </div>
@@ -970,7 +1093,7 @@ export function IceCubesPage() {
                     <div className="wm-ice-card-photo"><span className="wm-icebag" /></div>
                     <h3>{title}</h3>
                     <small>{note}</small>
-                    <a className="wm-btn wm-btn-navy" href="#ice-order">Order Now <span aria-hidden>→</span></a>
+                    <a className="wm-btn wm-btn-navy" href="#ice-order">Add to order <span aria-hidden>→</span></a>
                   </article>
                 ))}
               </div>
@@ -981,12 +1104,12 @@ export function IceCubesPage() {
                   const count = qty[product.id] ?? 0;
                   const out = product.stock_quantity != null && product.stock_quantity <= 0;
                   return (
-                    <article key={product.id} className={`wm-ice-card${activeId === product.id ? ' is-picked' : ''}`}>
+                    <article key={product.id} className={`wm-ice-card${count > 0 ? ' is-picked' : ''}`}>
                       <div className="wm-ice-card-photo">{src ? <img src={src} alt="" /> : <span className="wm-icebag" />}</div>
                       <h3>{product.name}</h3>
                       <small>{money(Number(product.price))}{out ? ' · Out of stock' : ''}</small>
-                      <button type="button" className="wm-btn wm-btn-navy" disabled={out} onClick={() => orderProduct(product.id)}>
-                        {count > 0 ? `Order Now · ${count}` : 'Order Now'} <span aria-hidden>→</span>
+                      <button type="button" className="wm-btn wm-btn-navy" disabled={out} onClick={() => addToOrder(product.id)}>
+                        {count > 0 ? `Add to order · ${count}` : 'Add to order'} <span aria-hidden>→</span>
                       </button>
                     </article>
                   );
@@ -997,47 +1120,73 @@ export function IceCubesPage() {
         </div>
 
         <form id="ice-order" className="wm-ice-book" onSubmit={(event) => void submit(event)}>
-          <h2><Icon name="calendar" /> Book Your Ice Delivery</h2>
+          <h2><Icon name="ice" /> Place your order</h2>
           <p>Get your ice delivered right to your door.</p>
           {orderId ? (
-            <p className="wm-done">Order received. The station can see it in Ice Order Management.</p>
+            <>
+              <p className="wm-done">Order received. Our team will update you on the status of your order.</p>
+              <button type="button" className="wm-btn wm-btn-block" onClick={orderAgain}>
+                Order again
+              </button>
+            </>
           ) : (
             <>
-              <div className="wm-ice-when">
-                <BookingDate value={date} onChange={setDate} />
-                <label>
-                  Select Time
-                  <input type="time" value={time} onChange={(event) => setTime(event.target.value)} required />
-                </label>
-              </div>
               <label>
                 Full Name
-                <input value={name} onChange={(event) => setName(event.target.value)} required />
+                <input value={name} onChange={(event) => setName(event.target.value)} placeholder="Juan Dela Cruz" required />
               </label>
               <label>
                 Contact Number
-                <input value={phone} onChange={(event) => setPhone(event.target.value)} required />
+                <input value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="09xx xxx xxxx" inputMode="tel" required />
               </label>
               <label>
                 Delivery Address
-                <input value={address} onChange={(event) => setAddress(event.target.value)} required />
+                <input
+                  value={address}
+                  onChange={(event) => setAddress(event.target.value)}
+                  placeholder="Use current location to fill this in"
+                  required
+                />
               </label>
-              <div className="wm-ice-qty">
-                <div className="wm-stepper">
-                  <button type="button" aria-label="Decrease quantity" disabled={!active} onClick={() => changeActiveQty(activeQty - 1)}>−</button>
-                  <span>{active ? activeQty : 1}</span>
-                  <button type="button" aria-label="Increase quantity" disabled={!active || (active.stock_quantity != null && activeQty >= active.stock_quantity)} onClick={() => changeActiveQty(activeQty + 1)}>+</button>
+              <button className="wm-loc" type="button" onClick={useCurrentLocation} disabled={locating}>
+                {locating ? 'Finding your location…' : coords ? 'Update current location' : 'Use current location'}
+              </button>
+              {coords ? <p className="wm-loc-note">Address filled from your current location.</p> : null}
+              <div className="wm-ice-summary" aria-live="polite">
+                <h3>Order summary</h3>
+                {lines.length === 0 ? (
+                  <p className="wm-empty">{products.length === 0 ? 'Choose an ice product once the station adds it to inventory.' : 'Add an ice product to see it here.'}</p>
+                ) : (
+                  <ul>
+                    {lines.map(({ product, quantity, price, line }) => {
+                      const src = publicWrsAssetUrl(supabase, product.image_url);
+                      const capped = product.stock_quantity != null && quantity >= product.stock_quantity;
+                      return (
+                        <li key={product.id}>
+                          <div className="wm-ice-summary-photo">{src ? <img src={src} alt="" /> : <span className="wm-icebag" />}</div>
+                          <div className="wm-ice-summary-copy">
+                            <strong>{product.name}</strong>
+                            <span>{money(price)} each</span>
+                            <div className="wm-stepper">
+                              <button type="button" aria-label={`Decrease ${product.name}`} onClick={() => changeQty(product.id, quantity - 1)}>−</button>
+                              <span>{quantity}</span>
+                              <button type="button" aria-label={`Increase ${product.name}`} disabled={capped} onClick={() => changeQty(product.id, quantity + 1)}>+</button>
+                            </div>
+                          </div>
+                          <b>{money(line)}</b>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+                <div className="wm-ice-total">
+                  <span>Total order</span>
+                  <strong>{money(orderTotal)}</strong>
                 </div>
-                <span>{active ? active.name : 'Bag(s) / Block(s)'}</span>
               </div>
-              {products.length === 0 ? <p className="wm-empty">Choose an ice product once the station adds it to inventory.</p> : null}
               {error && products.length > 0 ? <p className="wm-error">{error}</p> : null}
               <button className="wm-btn wm-btn-block" type="submit" disabled={busy || chosen.length === 0}>
-                <Icon name="truck" /> {busy ? 'Sending…' : 'Confirm Booking'}
-              </button>
-              <p className="wm-ice-or">or</p>
-              <button className="wm-btn wm-btn-line wm-btn-block" type="submit" disabled={busy || chosen.length === 0}>
-                <Icon name="ice" /> Order Online
+                <Icon name="truck" /> {busy ? 'Sending…' : 'Place order'}
               </button>
               <p className="wm-ice-secure">Secure & Easy Ordering</p>
             </>
@@ -1049,13 +1198,6 @@ export function IceCubesPage() {
 }
 
 type LaundryService = { id: string; name: string; price: number; unit_label: string };
-
-const LAUNDRY_SAMPLES = [
-  { name: 'Wash & Fold', note: 'Clean, fresh and neatly folded.', price: 50, unit: 'kg', tone: 'fold' },
-  { name: 'Wash & Iron', note: 'Freshly washed and pressed.', price: 70, unit: 'kg', tone: 'hang' },
-  { name: 'Blanket & Comforter', note: 'Deep clean for your bedding.', price: 150, unit: 'pc', tone: 'blanket' },
-  { name: 'Curtain Cleaning', note: 'Keep your home fresh.', price: 100, unit: 'pc', tone: 'curtain' },
-];
 
 function laundryPrice(price: number, unit: string) {
   const clean = unit.replace(/^per\s+/i, '');
@@ -1069,6 +1211,8 @@ export function LaundryPublicPage() {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
+  const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [locating, setLocating] = useState(false);
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
   const [qty, setQty] = useState(1);
@@ -1096,6 +1240,20 @@ export function LaundryPublicPage() {
     document.getElementById('laundry-order')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
+  function useCurrentLocation() {
+    setLocating(true);
+    setError(null);
+    void readCurrentPlace()
+      .then((place) => {
+        setCoords({ latitude: place.latitude, longitude: place.longitude });
+        setAddress(place.address);
+      })
+      .catch((err: unknown) => {
+        setError(err instanceof Error ? err.message : 'Could not get your current location.');
+      })
+      .finally(() => setLocating(false));
+  }
+
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (!serviceId) {
@@ -1109,14 +1267,26 @@ export function LaundryPublicPage() {
     }
     setBusy(true);
     setError(null);
-    const { data, error: err } = await supabase.rpc('create_public_laundry_booking', {
+    const booking = {
       p_customer_name: name,
       p_contact_number: phone,
       p_address: address,
       p_scheduled_for: scheduled.toISOString(),
       p_notes: '',
       p_items: [{ service_id: serviceId, quantity: qty }],
+    };
+    let result = await supabase.rpc('create_public_laundry_booking', {
+      ...booking,
+      p_latitude: coords?.latitude ?? null,
+      p_longitude: coords?.longitude ?? null,
     });
+    if (result.error && coords && /could not find the function|schema cache|PGRST202/i.test(result.error.message)) {
+      result = await supabase.rpc('create_public_laundry_booking', {
+        ...booking,
+        p_notes: `pin:${coords.latitude},${coords.longitude}`,
+      });
+    }
+    const { data, error: err } = result;
     setBusy(false);
     if (err) {
       setError(friendly(err.message) ?? 'Laundry booking is not open yet. The station still needs the database update.');
@@ -1141,9 +1311,6 @@ export function LaundryPublicPage() {
                 <a className="wm-btn" href="#laundry-order">
                   <Icon name="calendar" /> Book Now <span aria-hidden>→</span>
                 </a>
-                <a className="wm-btn wm-btn-line" href="#laundry-services">
-                  <Icon name="shirt" /> Order Laundry <span aria-hidden>→</span>
-                </a>
               </div>
             </div>
             <div className="wm-ly-art" aria-hidden>
@@ -1167,16 +1334,7 @@ export function LaundryPublicPage() {
             <h2><span className="wm-kicker">—</span> Our Laundry Services</h2>
             <p className="wm-ice-intro">Quality care for your clothes, always.</p>
             {services.length === 0 ? (
-              <div className="wm-ly-grid">
-                {LAUNDRY_SAMPLES.map((item) => (
-                  <article key={item.name} className="wm-ice-card">
-                    <div className={`wm-ly-photo wm-ly-${item.tone}`} />
-                    <h3>{item.name}</h3>
-                    <small>{item.note}</small>
-                    <span className="wm-ly-price">{laundryPrice(item.price, item.unit)}</span>
-                  </article>
-                ))}
-              </div>
+              <p className="wm-empty">Services appear here after they are added in Laundry Management. Choose one in the booking form.</p>
             ) : (
               <div className="wm-ly-grid">
                 {services.map((service) => (
@@ -1213,15 +1371,24 @@ export function LaundryPublicPage() {
               </div>
               <label>
                 Pickup Address
-                <input value={address} onChange={(event) => setAddress(event.target.value)} required />
+                <input
+                  value={address}
+                  onChange={(event) => setAddress(event.target.value)}
+                  placeholder="House no., street, barangay"
+                  required
+                />
               </label>
+              <button className="wm-loc" type="button" onClick={useCurrentLocation} disabled={locating}>
+                {locating ? 'Finding your location…' : coords ? 'Update current location' : 'Use current location'}
+              </button>
+              {coords ? <p className="wm-loc-note">Address filled from your current location.</p> : null}
               <label>
                 Full Name
-                <input value={name} onChange={(event) => setName(event.target.value)} required />
+                <input value={name} onChange={(event) => setName(event.target.value)} placeholder="Juan Dela Cruz" required />
               </label>
               <label>
                 Contact Number
-                <input value={phone} onChange={(event) => setPhone(event.target.value)} required />
+                <input value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="09xx xxx xxxx" inputMode="tel" required />
               </label>
               <label>
                 Select Service
@@ -1244,11 +1411,7 @@ export function LaundryPublicPage() {
               </div>
               {error ? <p className="wm-error">{error}</p> : null}
               <button className="wm-btn wm-btn-block" type="submit" disabled={busy || services.length === 0}>
-                <Icon name="truck" /> {busy ? 'Sending…' : 'Confirm Booking'}
-              </button>
-              <p className="wm-ice-or">or</p>
-              <button className="wm-btn wm-btn-line wm-btn-block" type="submit" disabled={busy || services.length === 0}>
-                <Icon name="shirt" /> Order Now
+                <Icon name="calendar" /> {busy ? 'Sending…' : 'Confirm Booking'}
               </button>
             </>
           )}

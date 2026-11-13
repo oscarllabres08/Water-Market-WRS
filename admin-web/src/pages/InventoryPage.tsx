@@ -9,7 +9,7 @@ import { useAuth } from '../auth/AuthProvider';
 import { money, publicWrsAssetUrl } from '../lib/format';
 import { supabase } from '../lib/supabase';
 import { fetchLoyaltyProgramActive } from '../lib/loyaltyProgram';
-import { isLowStock, LOW_STOCK_THRESHOLD, stockLabel, tracksStock } from '../lib/inventoryStock';
+import { isLowStock, LOW_STOCK_THRESHOLD, stockLabel, tracksStock, type CatalogCategory } from '../lib/inventoryStock';
 import { uploadProductImage } from '../lib/uploadProductImage';
 
 type ProductRow = {
@@ -17,13 +17,13 @@ type ProductRow = {
   name: string;
   price: number;
   is_available: boolean;
-  category: 'water' | 'other' | 'ice';
+  category: CatalogCategory;
   earn_loyalty_points: boolean;
   stock_quantity: number | null;
   image_url?: string | null;
 };
 
-type InvFilter = 'all' | 'water' | 'ice' | 'other';
+type InvFilter = 'all' | CatalogCategory;
 
 export function InventoryPage() {
   const { businessId, profile } = useAuth();
@@ -33,7 +33,7 @@ export function InventoryPage() {
   const [error, setError] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
-  const [category, setCategory] = useState<'water' | 'other' | 'ice'>('water');
+  const [category, setCategory] = useState<CatalogCategory>('water');
   const [stockQty, setStockQty] = useState('');
   const [earnLoyalty, setEarnLoyalty] = useState(false);
   const [newImageFile, setNewImageFile] = useState<File | null>(null);
@@ -44,7 +44,7 @@ export function InventoryPage() {
   const [editing, setEditing] = useState<ProductRow | null>(null);
   const [editName, setEditName] = useState('');
   const [editPrice, setEditPrice] = useState('');
-  const [editCategory, setEditCategory] = useState<'water' | 'other' | 'ice'>('water');
+  const [editCategory, setEditCategory] = useState<CatalogCategory>('water');
   const [editStockQty, setEditStockQty] = useState('');
   const [editEarnLoyalty, setEditEarnLoyalty] = useState(false);
   const [editImageFile, setEditImageFile] = useState<File | null>(null);
@@ -119,6 +119,7 @@ export function InventoryPage() {
   }, [products, search, listFilter]);
 
   const waterProducts = filtered.filter((p) => p.category === 'water');
+  const bottledProducts = filtered.filter((p) => p.category === 'bottled_water');
   const iceProducts = filtered.filter((p) => p.category === 'ice');
   const otherProducts = filtered.filter((p) => p.category === 'other');
 
@@ -148,7 +149,7 @@ export function InventoryPage() {
     if (tracksStock(category)) {
       const q = Number(stockQty);
       if (!Number.isInteger(q) || q < 0) {
-        setError('Enter stock quantity (0 or more pieces) for Others products.');
+        setError('Enter a stock quantity of 0 or more pieces.');
         return;
       }
       stock = q;
@@ -224,7 +225,7 @@ export function InventoryPage() {
     if (tracksStock(editCategory)) {
       const q = Number(editStockQty);
       if (!Number.isInteger(q) || q < 0) {
-        setError('Enter stock quantity (0 or more pieces) for Others products.');
+        setError('Enter a stock quantity of 0 or more pieces.');
         return;
       }
       stock = q;
@@ -302,6 +303,7 @@ export function InventoryPage() {
               [
                 { id: 'all' as const, label: 'All' },
                 { id: 'water' as const, label: 'Water Refill' },
+                { id: 'bottled_water' as const, label: 'Bottled Water' },
                 { id: 'ice' as const, label: 'Ice' },
                 { id: 'other' as const, label: 'Others' },
               ] as const
@@ -314,7 +316,7 @@ export function InventoryPage() {
                 className={`pos-category-tab${listFilter === tab.id ? ' active' : ''}`}
                 onClick={() => setListFilter(tab.id)}
               >
-                {tab.id === 'water' ? <DropIcon /> : tab.id === 'other' || tab.id === 'ice' ? <BoxIcon /> : null}
+                {tab.id === 'water' || tab.id === 'bottled_water' ? <DropIcon /> : tab.id === 'other' || tab.id === 'ice' ? <BoxIcon /> : null}
                 {tab.label}
               </button>
             ))}
@@ -342,6 +344,23 @@ export function InventoryPage() {
         {waterProducts.length > 0 ? (
           <InventorySection title="Water Refill" icon={<DropIcon />} count={waterProducts.length}>
             {waterProducts.map((p) => (
+              <InventoryRow
+                key={p.id}
+                product={p}
+                loyaltyProgramActive={loyaltyProgramActive}
+                uploading={uploadingId === p.id}
+                onEdit={() => openEdit(p)}
+                onDelete={() => setDeleteTarget(p)}
+                onToggleAvail={(v) => void toggleAvailability(p.id, v)}
+                onReplaceImage={(f) => void replaceImage(p.id, f)}
+              />
+            ))}
+          </InventorySection>
+        ) : null}
+
+        {bottledProducts.length > 0 ? (
+          <InventorySection title="Bottled Water" icon={<DropIcon />} count={bottledProducts.length}>
+            {bottledProducts.map((p) => (
               <InventoryRow
                 key={p.id}
                 product={p}
@@ -420,12 +439,13 @@ export function InventoryPage() {
                       id="pcat"
                       value={category}
                       onChange={(e) => {
-                        const next = e.target.value as 'water' | 'other' | 'ice';
+                        const next = e.target.value as CatalogCategory;
                         setCategory(next);
                         if (next === 'water') setStockQty('');
                       }}
                     >
                       <option value="water">Water Refill</option>
+                      <option value="bottled_water">Bottled Water</option>
                       <option value="ice">Ice</option>
                       <option value="other">Others</option>
                     </select>
@@ -522,12 +542,13 @@ export function InventoryPage() {
                       id="ecat"
                       value={editCategory}
                       onChange={(e) => {
-                        const next = e.target.value as 'water' | 'other' | 'ice';
+                        const next = e.target.value as CatalogCategory;
                         setEditCategory(next);
                         if (next === 'water') setEditStockQty('');
                       }}
                     >
                       <option value="water">Water Refill</option>
+                      <option value="bottled_water">Bottled Water</option>
                       <option value="ice">Ice</option>
                       <option value="other">Others</option>
                     </select>
@@ -668,7 +689,15 @@ function InventoryRow({
 }) {
   const img = publicWrsAssetUrl(supabase, p.image_url);
   const categoryLabel =
-    p.category === 'water' ? 'Water Refill' : p.category === 'ice' ? 'Ice' : /container|gallon|jug|slim|round/i.test(p.name) ? 'Container' : 'Accessory';
+    p.category === 'water'
+      ? 'Water Refill'
+      : p.category === 'bottled_water'
+        ? 'Bottled Water'
+        : p.category === 'ice'
+          ? 'Ice'
+          : /container|gallon|jug|slim|round/i.test(p.name)
+            ? 'Container'
+            : 'Accessory';
 
   return (
     <article className={`inventory-row${p.is_available ? '' : ' unavailable'}`}>

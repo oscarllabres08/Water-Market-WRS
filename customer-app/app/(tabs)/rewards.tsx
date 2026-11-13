@@ -6,7 +6,7 @@ import { useRouter } from 'expo-router';
 
 import { useAuth } from '../../providers/AuthProvider';
 import { supabase } from '../../lib/supabase';
-import { fetchCustomerLoyaltySummary } from '../../lib/customerLoyalty';
+import { fetchCustomerLoyaltySummary, FREE_REFILL_POINTS } from '../../lib/customerLoyalty';
 import { Screen } from '../../ui/components/Screen';
 import { Card } from '../../ui/components/Card';
 import { GradientCard } from '../../ui/components/GradientCard';
@@ -60,7 +60,7 @@ export default function RewardsTabScreen() {
     setLoading(true);
     try {
       const summary = await fetchCustomerLoyaltySummary(supabase, user.id);
-      const canRedeem = summary.balanceRows.some((r) => r.points_balance >= 10);
+      const canRedeem = summary.balanceRows.some((r) => r.points_balance >= FREE_REFILL_POINTS);
       setCanRedeemSegment(canRedeem);
       setSellerId(summary.redeemSellerId);
       setPoints(summary.totalPoints);
@@ -116,7 +116,7 @@ export default function RewardsTabScreen() {
       const raw = data as { ok?: boolean; error?: string; code?: string; expires_at?: string };
       if (!raw?.ok) {
         if (raw?.error === 'insufficient_points') {
-          setErr('You need at least 10 points in one store balance to redeem.');
+          setErr(`You need at least ${FREE_REFILL_POINTS} points in one store balance to redeem.`);
         } else if (raw?.error === 'loyalty_inactive') {
           setErr('The store has paused loyalty redemptions for now. Your points are saved.');
         } else {
@@ -153,7 +153,7 @@ export default function RewardsTabScreen() {
     );
   }
 
-  const progressPct = Math.min(100, (points / 10) * 100);
+  const progressPct = Math.min(100, (points / FREE_REFILL_POINTS) * 100);
 
   return (
     <Screen style={{ padding: 0 }} enter>
@@ -254,7 +254,7 @@ export default function RewardsTabScreen() {
                 {loading ? '—' : points}
               </Text>
               <Text weight="semibold" style={{ color: 'rgba(255,255,255,0.88)', marginTop: 10, fontSize: 13, lineHeight: 18 }}>
-                10 pts = 1 voucher for a free container refill • Show code at the store
+                {FREE_REFILL_POINTS} pts = 1 voucher for a free container refill • Show code at the store
               </Text>
             </View>
             <View
@@ -298,7 +298,7 @@ export default function RewardsTabScreen() {
               }}
             >
               <Text weight="extrabold" style={{ fontSize: 15, color: PRIMARY }}>
-                {redeeming ? 'Redeeming…' : 'Redeem 10 points'}
+                {redeeming ? 'Redeeming…' : `Redeem ${FREE_REFILL_POINTS} points`}
               </Text>
             </Pressable>
           </View>
@@ -314,7 +314,7 @@ export default function RewardsTabScreen() {
               }}
             >
               <Text weight="semibold" style={{ fontSize: 13, lineHeight: 18, color: '#fff' }}>
-                Need 10 pts in one store balance to redeem (split 5+5 won't work).
+                Need {FREE_REFILL_POINTS} pts in one store balance to redeem.
               </Text>
             </View>
           ) : null}

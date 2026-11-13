@@ -810,34 +810,38 @@
     if new.status is distinct from old.status then
       v_status_label := replace(new.status::text, '_', ' ');
 
-      insert into public.notifications(recipient_id, order_id, kind, title, body, data)
-      values (
-        new.customer_id,
-        new.id,
-        'order_status',
-        'Order update',
-        'Your order is now ' || v_status_label || '.',
-        jsonb_build_object(
-          'orderId', new.id,
-          'app', 'customer',
-          'status', new.status::text
-        )
-      );
+      if new.customer_id is not null then
+        insert into public.notifications(recipient_id, order_id, kind, title, body, data)
+        values (
+          new.customer_id,
+          new.id,
+          'order_status',
+          'Order update',
+          'Your order is now ' || v_status_label || '.',
+          jsonb_build_object(
+            'orderId', new.id,
+            'app', 'customer',
+            'status', new.status::text
+          )
+        );
+      end if;
 
-      insert into public.notifications(recipient_id, order_id, kind, title, body, data)
-      values (
-        new.seller_id,
-        new.id,
-        'order_activity',
-        'Order ' || v_status_label,
-        coalesce(new.customer_name, 'Customer') || '''s order is now ' || v_status_label || '.',
-        jsonb_build_object(
-          'orderId', new.id,
-          'app', 'seller',
-          'status', new.status::text,
-          'customerName', new.customer_name
-        )
-      );
+      if new.seller_id is not null then
+        insert into public.notifications(recipient_id, order_id, kind, title, body, data)
+        values (
+          new.seller_id,
+          new.id,
+          'order_activity',
+          'Order ' || v_status_label,
+          coalesce(new.customer_name, 'Customer') || '''s order is now ' || v_status_label || '.',
+          jsonb_build_object(
+            'orderId', new.id,
+            'app', 'seller',
+            'status', new.status::text,
+            'customerName', new.customer_name
+          )
+        );
+      end if;
     end if;
     return new;
   end;
@@ -1910,7 +1914,7 @@
 
   -- ---------------------------------------------------------------------------
   -- Loyalty (online orders only): water container qty = points; utang = no points;
-  -- 10 points → voucher (1 free refill), code expires 3 days after redeem.
+  -- 5 points → voucher (1 free refill), code expires 3 days after redeem.
   -- ---------------------------------------------------------------------------
 
   create table if not exists public.loyalty_balances (
@@ -1943,7 +1947,7 @@
     seller_id uuid not null references public.profiles(user_id) on delete cascade,
     code text not null,
     status public.loyalty_voucher_status not null default 'active',
-    points_spent int not null default 10 check (points_spent > 0),
+    points_spent int not null default 5 check (points_spent > 0),
     issued_at timestamptz not null default now(),
     expires_at timestamptz not null,
     used_at timestamptz,
@@ -2095,11 +2099,11 @@
 
     update public.loyalty_balances lb
     set
-      points_balance = lb.points_balance - 10,
+      points_balance = lb.points_balance - 5,
       updated_at = now()
     where lb.customer_id = v_uid
       and lb.seller_id = p_seller_id
-      and lb.points_balance >= 10;
+      and lb.points_balance >= 5;
     get diagnostics v_n = row_count;
 
     if v_n = 0 then
@@ -2111,7 +2115,7 @@
       v_attempt := v_attempt + 1;
       if v_attempt > 8 then
         update public.loyalty_balances lb
-        set points_balance = lb.points_balance + 10, updated_at = now()
+        set points_balance = lb.points_balance + 5, updated_at = now()
         where lb.customer_id = v_uid and lb.seller_id = p_seller_id;
         raise exception 'Could not generate a unique voucher code';
       end if;
@@ -2131,7 +2135,7 @@
           p_seller_id,
           v_code,
           'active',
-          10,
+          5,
           v_exp
         )
         returning id into v_id;
@@ -2991,11 +2995,11 @@ begin
 
   update public.loyalty_balances lb
   set
-    points_balance = lb.points_balance - 10,
+    points_balance = lb.points_balance - 5,
     updated_at = now()
   where lb.customer_id = v_uid
     and lb.seller_id = p_seller_id
-    and lb.points_balance >= 10;
+    and lb.points_balance >= 5;
   get diagnostics v_n = row_count;
 
   if v_n = 0 then
@@ -3007,7 +3011,7 @@ begin
     v_attempt := v_attempt + 1;
     if v_attempt > 8 then
       update public.loyalty_balances lb
-      set points_balance = lb.points_balance + 10, updated_at = now()
+      set points_balance = lb.points_balance + 5, updated_at = now()
       where lb.customer_id = v_uid and lb.seller_id = p_seller_id;
       raise exception 'Could not generate a unique voucher code';
     end if;
@@ -3027,7 +3031,7 @@ begin
         p_seller_id,
         v_code,
         'active',
-        10,
+        5,
         v_exp
       )
       returning id into v_id;
@@ -4292,7 +4296,7 @@ revoke all on function public.owner_remove_customer_from_store(uuid) from public
 grant execute on function public.owner_remove_customer_from_store(uuid) to authenticated;
 grant execute on function public.owner_remove_customer_from_store(uuid) to service_role;
 
--- Store gives 1 free refill when a customer has at least 10 points, then uses those 10 points.
+-- Store gives 1 free refill when a customer has at least 5 points, then uses those 5 points.
 create or replace function public.seller_give_free_refill(p_customer_id uuid)
 returns jsonb
 language plpgsql
@@ -4317,18 +4321,18 @@ begin
 
   update public.loyalty_balances lb
   set
-    points_balance = lb.points_balance - 10,
+    points_balance = lb.points_balance - 5,
     updated_at = now()
   where lb.customer_id = p_customer_id
     and lb.seller_id = v_business
-    and lb.points_balance >= 10
+    and lb.points_balance >= 5
   returning lb.points_balance into v_left;
 
   if not found then
     return jsonb_build_object(
       'ok', false,
       'error', 'insufficient_points',
-      'message', 'This customer does not have 10 points yet.'
+      'message', 'This customer does not have 5 points yet.'
     );
   end if;
 
@@ -4343,7 +4347,7 @@ begin
       null,
       'loyalty_points',
       'Free refill given',
-      'The store gave you 1 free refill. 10 loyalty points were used.'
+      'The store gave you 1 free refill. 5 loyalty points were used.'
         || case when v_left > 0 then ' You have ' || v_left::text || ' points left.' else ' Your points are back to 0.' end,
       jsonb_build_object('points_remaining', v_left, 'free_refill', true, 'app', 'customer')
     );
@@ -4588,18 +4592,18 @@ begin
 
   update public.pos_loyalty_balances b
   set
-    points_balance = b.points_balance - 10,
+    points_balance = b.points_balance - 5,
     updated_at = now()
   where b.seller_id = v_business
     and b.customer_name_key = v_key
-    and b.points_balance >= 10
+    and b.points_balance >= 5
   returning b.points_balance, b.display_name into v_left, v_name;
 
   if not found then
     return jsonb_build_object(
       'ok', false,
       'error', 'insufficient_points',
-      'message', 'This customer does not have 10 points yet.'
+      'message', 'This customer does not have 5 points yet.'
     );
   end if;
 

@@ -22,7 +22,7 @@ import { verifyLoyaltyVoucherCode } from '../lib/verifyLoyaltyVoucher';
 
 
 
-const FREE_REFILL_POINTS = 10;
+const FREE_REFILL_POINTS = 5;
 const CLOSE_LIMIT = 8;
 
 type LoyaltyCustomer = {
@@ -427,7 +427,7 @@ export function LoyaltyPage() {
           <p className="muted-block loyalty-settings-desc">
             When <strong>Active</strong>, delivered online orders can earn points on products you mark in Inventory.
             POS can also add points when you check “Add loyalty points to this order” and enter the customer name.
-            10 points = 1 free refill. App customers can still redeem a voucher. Walk-in customers are listed here,
+            {FREE_REFILL_POINTS} points = 1 free refill. App customers can still redeem a voucher. Walk-in customers are listed here,
             and you give the refill from this page — no voucher needed. When <strong>Off</strong>, online earning pauses.
             Existing voucher codes still work. When <strong>Off</strong>, online earning pauses.
             Existing voucher codes still work.
@@ -494,7 +494,7 @@ export function LoyaltyPage() {
             <li>Turn the program Active during promos or ongoing loyalty.</li>
             <li>In Inventory, mark products that earn points.</li>
             <li>1 delivered unit, or 1 POS unit when the loyalty box is checked, = 1 point.</li>
-            <li>10 points = 1 free refill. Give it here. The 10 points are then removed.</li>
+            <li>{FREE_REFILL_POINTS} points = 1 free refill. Give it here. The {FREE_REFILL_POINTS} points are then removed.</li>
           </ul>
         </details>
       </div>
@@ -504,8 +504,8 @@ export function LoyaltyPage() {
       <div className="card card-flat loyalty-customers-card">
         <h2 className="inventory-section-title">Free refill</h2>
         <p className="muted-block loyalty-settings-desc">
-          10 points = 1 free refill. Customers at 10 or more are listed here, including walk-ins with no app.
-          Give the refill and those 10 points are removed. No voucher is required for this button.
+          {FREE_REFILL_POINTS} points = 1 free refill. Customers at {FREE_REFILL_POINTS} or more are listed here, including walk-ins with no app.
+          Give the refill and those {FREE_REFILL_POINTS} points are removed. No voucher is required for this button.
         </p>
         {giveNotice ? <p className="loyalty-give-notice">{giveNotice}</p> : null}
         {customersLoading ? <p className="muted-block">Loading customers…</p> : null}
@@ -563,7 +563,7 @@ export function LoyaltyPage() {
         message={
           giveTarget ? (
             <>
-              Give <strong>{giveTarget.name}</strong> 1 free refill? This uses 10 points
+              Give <strong>{giveTarget.name}</strong> 1 free refill? This uses {FREE_REFILL_POINTS} points
               {giveTarget.points - FREE_REFILL_POINTS > 0
                 ? ` and leaves ${giveTarget.points - FREE_REFILL_POINTS}.`
                 : ' and sets the balance back to 0.'}

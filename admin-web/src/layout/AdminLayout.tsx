@@ -168,7 +168,7 @@ function MenuIcon({ open }: { open: boolean }) {
 const NAV = [
   { to: '/wrs-management', label: 'Dashboard', end: true, icon: 'dashboard' as const },
   { to: '/wrs-management/pos', label: 'POS', icon: 'pos' as const },
-  { to: '/wrs-management/orders', label: 'Water Orders', icon: 'orders' as const },
+  { to: '/wrs-management/orders', label: 'Water Online Orders', icon: 'orders' as const },
   { to: '/wrs-management/ice-orders', label: 'Ice Order Management', icon: 'ice' as const },
   { to: '/wrs-management/delivery', label: 'Delivery Management', icon: 'delivery' as const },
   { to: '/wrs-management/inventory', label: 'Inventory', icon: 'inventory' as const },
@@ -183,7 +183,7 @@ const NAV = [
 const PAGE_TITLES: { match: (path: string) => boolean; label: string }[] = [
   { match: (p) => p === '/wrs-management', label: 'Dashboard' },
   { match: (p) => p.startsWith('/wrs-management/pos'), label: 'POS' },
-  { match: (p) => p.startsWith('/wrs-management/orders'), label: 'Water Orders' },
+  { match: (p) => p.startsWith('/wrs-management/orders'), label: 'Water Online Orders' },
   { match: (p) => p.startsWith('/wrs-management/ice-orders'), label: 'Ice Order Management' },
   { match: (p) => p.startsWith('/wrs-management/delivery'), label: 'Delivery Management' },
   { match: (p) => p.startsWith('/wrs-management/inventory'), label: 'Inventory' },
@@ -211,7 +211,8 @@ export function AdminLayout() {
   const { darkMode, toggleDarkMode } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
-  const [pendingOrders, setPendingOrders] = useState(0);
+  const [pendingWater, setPendingWater] = useState(0);
+  const [pendingIce, setPendingIce] = useState(0);
   const [pendingStaff, setPendingStaff] = useState(0);
   const [navOpen, setNavOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(location.pathname.startsWith('/settings'));
@@ -260,7 +261,7 @@ export function AdminLayout() {
     if (!businessId) return;
     const pendingOrdersQuery = supabase
       .from('orders')
-      .select('id', { count: 'exact', head: true })
+      .select('id, order_items(products(category))')
       .eq('seller_id', businessId)
       .eq('status', 'pending');
     const pendingStaffQuery = supabase
@@ -270,7 +271,24 @@ export function AdminLayout() {
       .eq('seller_team_role', 'staff')
       .eq('seller_join_status', 'pending');
     const [ordersRes, staffRes] = await Promise.all([pendingOrdersQuery, pendingStaffQuery]);
-    if (!ordersRes.error) setPendingOrders(ordersRes.count ?? 0);
+    if (!ordersRes.error) {
+      let water = 0;
+      let ice = 0;
+      for (const order of ordersRes.data ?? []) {
+        const items = (order.order_items ?? []) as { products: { category: string } | { category: string }[] | null }[];
+        const categories = items.map((item) => {
+          const product = item.products;
+          if (Array.isArray(product)) return product[0]?.category ?? '';
+          return product?.category ?? '';
+        });
+        const hasIce = categories.some((category) => category === 'ice');
+        const hasOther = categories.some((category) => category !== 'ice');
+        if (hasIce) ice += 1;
+        if (!(hasIce && !hasOther)) water += 1;
+      }
+      setPendingWater(water);
+      setPendingIce(ice);
+    }
     if (!staffRes.error) setPendingStaff(staffRes.count ?? 0);
   }, [businessId]);
 
@@ -404,9 +422,12 @@ export function AdminLayout() {
                     <span className="admin-nav-label">{item.label}</span>
                   </span>
                   {item.to === '/wrs-management/ice-orders' ? (
-                    <span className={`admin-status-pill${storeOpen ? '' : ' is-off'}`}>{storeOpen ? 'Online' : 'Offline'}</span>
+                    <span className="admin-nav-marks">
+                      {pendingIce > 0 ? <span className="admin-badge">{pendingIce}</span> : null}
+                      <span className={`admin-status-pill${storeOpen ? '' : ' is-off'}`}>{storeOpen ? 'Online' : 'Offline'}</span>
+                    </span>
                   ) : null}
-                  {item.to === '/wrs-management/orders' && pendingOrders > 0 ? <span className="admin-badge">{pendingOrders}</span> : null}
+                  {item.to === '/wrs-management/orders' && pendingWater > 0 ? <span className="admin-badge">{pendingWater}</span> : null}
                   {item.to === '/wrs-management/staff' && pendingStaff > 0 ? <span className="admin-badge">{pendingStaff}</span> : null}
                 </NavLink>
               ))}
@@ -515,7 +536,7 @@ export function AdminLayout() {
         <main className="admin-main">
           <div className={`admin-main-inner${wideMain ? ' admin-main-inner--wide' : ''}`}>
             <PendingOrderReminderBanner orders={visibleOrders} onDismiss={dismissBanner} />
-            <Outlet context={{ pendingOrders, refreshPending: loadPending, storeOpen }} />
+            <Outlet context={{ pendingOrders: pendingWater, pendingIce, refreshPending: loadPending, storeOpen }} />
           </div>
         </main>
       </div>

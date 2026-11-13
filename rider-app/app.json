@@ -4,7 +4,7 @@
     "slug": "watermarket-rider",
     "version": "1.0.1",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/logo.png",
     "scheme": "watermarketrider",
     "userInterfaceStyle": "automatic",
     "androidStatusBar": {
@@ -13,7 +13,7 @@
       "translucent": false
     },
     "splash": {
-      "image": "./assets/icon.png",
+      "image": "./assets/logo.png",
       "resizeMode": "contain",
       "backgroundColor": "#FFFFFF"
     },
@@ -27,7 +27,7 @@
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#FFFFFF",
-        "foregroundImage": "./assets/adaptive-icon.png"
+        "foregroundImage": "./assets/logo.png"
       },
       "package": "com.watermarket.rider",
       "versionCode": 2,
@@ -43,7 +43,7 @@
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/icon.png"
+      "favicon": "./assets/logo.png"
     },
     "plugins": [
       "expo-router",

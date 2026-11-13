@@ -4,19 +4,36 @@ import { Platform } from 'react-native';
 
 import { getSupabaseUrlAndKey } from './supabaseEnv';
 
-const { url: supabaseUrl, anonKey: supabaseAnonKey } = getSupabaseUrlAndKey();
+const RETIRED_PROJECTS = ['hjvwwxdyyugjchkeolyp', 'nigvimeeqglqvgvtnbfy'];
+const config = getSupabaseUrlAndKey();
 
-/** Drop a saved login from the retired Zoda project so it cannot refresh against that host. */
+/** Shown instead of crashing when a build has no project, or still points at a retired one. */
+export const supabaseConfigError = config.error;
+
+/** Drop a saved login from a retired project so it cannot refresh and close the app. */
 function dropRetiredWebSession() {
   if (Platform.OS !== 'web' || typeof globalThis.localStorage === 'undefined') return;
   const storage = globalThis.localStorage;
   for (let i = storage.length - 1; i >= 0; i -= 1) {
     const key = storage.key(i);
-    if (key && key.includes('nigvimeeqglqvgvtnbfy')) storage.removeItem(key);
+    if (key && RETIRED_PROJECTS.some((host) => key.includes(host))) storage.removeItem(key);
   }
 }
 
+function dropRetiredNativeSession() {
+  if (Platform.OS === 'web') return;
+  void AsyncStorage.getAllKeys()
+    .then((keys) => {
+      const stale = keys.filter((key) => RETIRED_PROJECTS.some((host) => key.includes(host)));
+      return stale.length ? AsyncStorage.multiRemove(stale) : undefined;
+    })
+    .catch(() => {
+      /* a leftover session must not take the app down */
+    });
+}
+
 dropRetiredWebSession();
+dropRetiredNativeSession();
 
 /**
  * AsyncStorage touches `window` and breaks Expo Router **web** SSR in Node.
@@ -46,7 +63,7 @@ const authStorage = {
   },
 };
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+export const supabase = createClient(config.url || 'https://invalid.supabase.co', config.anonKey || 'public-anon-key', {
   auth: {
     storage: authStorage,
     autoRefreshToken: true,

@@ -21,16 +21,30 @@ function readExtra(): Extra {
   );
 }
 
-export function getSupabaseUrlAndKey(): { url: string; anonKey: string } {
+export function getSupabaseUrlAndKey(): { url: string; anonKey: string; error: string | null } {
   const extra = readExtra();
-  const url = (extra.supabaseUrl || process.env.EXPO_PUBLIC_SUPABASE_URL || '').trim();
-  const anonKey = (extra.supabaseAnonKey || process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '').trim();
+  // Prefer the live env. A long-running Expo server can keep an older project in extra.
+  const url = (process.env.EXPO_PUBLIC_SUPABASE_URL || extra.supabaseUrl || '').trim();
+  const anonKey = (process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || extra.supabaseAnonKey || '').trim();
+  const blocked = BLOCKED_HOSTS.find((host) => url.includes(host) || anonKey.includes(host));
 
-  if (!url || !anonKey || BLOCKED_HOSTS.some((host) => url.includes(host) || anonKey.includes(host))) {
-    throw new Error(
-      'Missing WaterMarket Supabase settings. Set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY, then restart Expo with a cleared cache.'
-    );
+  if (!url || !anonKey) {
+    return {
+      url: '',
+      anonKey: '',
+      error:
+        'This install has no WaterMarket Supabase settings, so it cannot open. Rebuild with EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY.',
+    };
   }
 
-  return { url, anonKey };
+  if (blocked) {
+    return {
+      url: '',
+      anonKey: '',
+      error:
+        'This install still points at a retired Supabase project. Rebuild the app against the current WaterMarket project.',
+    };
+  }
+
+  return { url, anonKey, error: null };
 }

@@ -468,7 +468,7 @@ export default function OrderDetailsScreen() {
   async function openInMaps() {
     if (!order) return;
     const hasCoords = typeof order.latitude === 'number' && typeof order.longitude === 'number';
-    const ref = deviceCoords ?? storeCoords;
+    const ref = storeCoords ?? deviceCoords;
     const hasOrigin = ref != null;
     const destLabel = hasCoords
       ? `${order.latitude},${order.longitude}`

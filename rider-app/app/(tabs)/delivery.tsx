@@ -64,9 +64,12 @@ function orderItemsLabel(order: OrderRow) {
   return line;
 }
 
-function openMaps(lat: number, lng: number, label: string) {
-  const q = encodeURIComponent(label);
-  void Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&query=${q}`);
+function openMaps(lat: number, lng: number, label: string, origin?: { lat: number; lng: number } | null) {
+  const destination = `${lat},${lng}`;
+  const url = origin
+    ? `https://www.google.com/maps/dir/?api=1&origin=${origin.lat},${origin.lng}&destination=${encodeURIComponent(destination)}&travelmode=driving`
+    : `https://www.google.com/maps/dir/?api=1&destination=${destination}&query=${encodeURIComponent(label)}`;
+  void Linking.openURL(url);
 }
 
 function isPending(status: string) {
@@ -836,7 +839,7 @@ function ActiveDeliveryCard({
       </Pressable>
       {hasPin ? (
         <Pressable
-          onPress={() => openMaps(order.latitude!, order.longitude!, order.delivery_address)}
+          onPress={() => openMaps(order.latitude!, order.longitude!, order.delivery_address, storeCoords)}
           style={({ pressed }) => ({
             marginTop: 12,
             width: '100%',

@@ -24,10 +24,9 @@ import {
   LaundryDashboardPage,
   LaundryLayout,
   LaundryPosPage,
-  LaundryReportsPage,
+  LaundrySalesPage,
   LaundryServicesPage,
   LaundrySettingsPage,
-  LaundryTransactionsPage,
 } from './pages/laundry/LaundryPages';
 import {
   OwnerAnalyticsPage,
@@ -202,11 +201,12 @@ export default function App() {
         <Route index element={<LaundryDashboardPage />} />
         <Route path="pos" element={<LaundryPosPage />} />
         <Route path="bookings" element={<LaundryBookingsPage />} />
-        <Route path="transactions" element={<LaundryTransactionsPage />} />
+        <Route path="transactions" element={<Navigate to="/laundry-management/sales" replace />} />
         <Route path="services" element={<LaundryServicesPage />} />
+        <Route path="sales" element={<LaundrySalesPage />} />
         <Route path="customers" element={<LaundryCustomersPage />} />
         <Route path="expenses" element={<ExpensesPage businessUnit="laundry" />} />
-        <Route path="reports" element={<LaundryReportsPage />} />
+        <Route path="reports" element={<Navigate to="/laundry-management/sales" replace />} />
         <Route path="settings" element={<LaundrySettingsPage />} />
       </Route>
 

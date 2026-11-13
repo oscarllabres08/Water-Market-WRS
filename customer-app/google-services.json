@@ -1,21 +1,21 @@
 {
   "project_info": {
-    "project_number": "1075347937522",
-    "project_id": "water-chaste-wrs",
-    "storage_bucket": "water-chaste-wrs.firebasestorage.app"
+    "project_number": "76006693516",
+    "project_id": "water-market-fd9d2",
+    "storage_bucket": "water-market-fd9d2.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:1075347937522:android:6555aca9d8fed969e3986b",
+        "mobilesdk_app_id": "1:76006693516:android:0b9bb1dcadfb00aac579a9",
         "android_client_info": {
-          "package_name": "com.waterchaste.customer"
+          "package_name": "com.watermarket.customer"
         }
       },
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyD1wQblpcIbDXbUYhta2GPxVd_0TuxvuCk"
+          "current_key": "AIzaSyBZbGYIz8d86l2XtS3ZyAd9S5JMnZU3ZCo"
         }
       ],
       "services": {

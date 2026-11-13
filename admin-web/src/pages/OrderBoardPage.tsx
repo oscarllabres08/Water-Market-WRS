@@ -1,19 +1,21 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { PageHeader } from '../components/PageHeader';
 import { useAuth } from '../auth/AuthProvider';
-import { money } from '../lib/format';
+import { money, publicWrsAssetUrl } from '../lib/format';
 import { supabase } from '../lib/supabase';
 
 const STATUSES = ['pending', 'confirmed', 'preparing', 'on_the_way', 'delivered', 'cancelled'] as const;
 
 type Status = (typeof STATUSES)[number];
 
+type ProductSnap = { category: string; image_url?: string | null };
+
 type Item = {
   product_name: string;
   quantity: number;
   unit_price: number;
-  products: { category: string } | { category: string }[] | null;
+  products: ProductSnap | ProductSnap[] | null;
 };
 
 type OrderRow = {
@@ -21,16 +23,40 @@ type OrderRow = {
   customer_name: string;
   contact_number: string;
   delivery_address: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  notes?: string | null;
   status: Status;
   created_at: string;
   order_source: string | null;
   order_items: Item[] | null;
 };
 
-function itemCategory(item: Item) {
+const STATION_ORIGIN = 'Ilang-Ilang Road, Andagao, Kalibo, Aklan';
+
+function orderRoute(order: OrderRow, origin: string): string | null {
+  const match = (order.notes ?? '').match(/pin:(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/);
+  const latitude = typeof order.latitude === 'number' && Number.isFinite(order.latitude) ? order.latitude : match ? Number(match[1]) : null;
+  const longitude = typeof order.longitude === 'number' && Number.isFinite(order.longitude) ? order.longitude : match ? Number(match[2]) : null;
+  const destination = latitude != null && longitude != null ? `${latitude},${longitude}` : (order.delivery_address ?? '').trim();
+  if (!destination) return null;
+  const params = new URLSearchParams({
+    api: '1',
+    origin,
+    destination,
+    travelmode: 'driving',
+  });
+  return `https://www.google.com/maps/dir/?${params.toString()}`;
+}
+
+function itemProduct(item: Item) {
   const product = item.products;
-  if (Array.isArray(product)) return product[0]?.category ?? '';
-  return product?.category ?? '';
+  if (Array.isArray(product)) return product[0] ?? null;
+  return product;
+}
+
+function itemCategory(item: Item) {
+  return itemProduct(item)?.category ?? '';
 }
 
 function statusLabel(status: string) {
@@ -39,12 +65,94 @@ function statusLabel(status: string) {
   return status.charAt(0).toUpperCase() + status.slice(1);
 }
 
+function StatusMenu({
+  value,
+  customerName,
+  onChange,
+}: {
+  value: Status;
+  customerName: string;
+  onChange: (status: Status) => void;
+}) {
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
+
+  useEffect(() => {
+    if (!open || !buttonRef.current) return;
+    const rect = buttonRef.current.getBoundingClientRect();
+    const menuHeight = 248;
+    const openUp = rect.bottom + menuHeight + 8 > window.innerHeight;
+    setPos({
+      top: openUp ? Math.max(8, rect.top - menuHeight - 6) : rect.bottom + 6,
+      right: Math.max(8, window.innerWidth - rect.right),
+    });
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    function onPointer(event: MouseEvent) {
+      const target = event.target as Node;
+      if (buttonRef.current?.contains(target) || panelRef.current?.contains(target)) return;
+      setOpen(false);
+    }
+    function onKey(event: KeyboardEvent) {
+      if (event.key === 'Escape') setOpen(false);
+    }
+    document.addEventListener('mousedown', onPointer);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onPointer);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  return (
+    <div className={`order-status-field is-${value}${open ? ' is-open' : ''}`}>
+      <button
+        ref={buttonRef}
+        type="button"
+        className="order-status-select"
+        aria-label={`Status for ${customerName}`}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => setOpen((current) => !current)}
+      >
+        {statusLabel(value)}
+      </button>
+      <span className="order-status-chevron" aria-hidden />
+      {open && pos ? (
+        <div ref={panelRef} className="order-status-menu" role="listbox" style={{ top: pos.top, right: pos.right }}>
+          {STATUSES.map((status) => (
+            <button
+              key={status}
+              type="button"
+              role="option"
+              aria-selected={status === value}
+              className={`order-status-option is-${status}${status === value ? ' is-current' : ''}`}
+              onClick={() => {
+                setOpen(false);
+                if (status !== value) onChange(status);
+              }}
+            >
+              <span className="order-status-dot" aria-hidden />
+              {statusLabel(status)}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function OrderBoardPage({ mode }: { mode: 'water' | 'ice' | 'delivery' }) {
   const { businessId } = useAuth();
   const [rows, setRows] = useState<OrderRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<Status | 'all'>(mode === 'delivery' ? 'on_the_way' : 'all');
+  const [storeOrigin, setStoreOrigin] = useState(STATION_ORIGIN);
 
   const load = useCallback(async () => {
     if (!businessId) {
@@ -52,15 +160,28 @@ export function OrderBoardPage({ mode }: { mode: 'water' | 'ice' | 'delivery' })
       return;
     }
     setLoading(true);
-    const { data, error: err } = await supabase
+    const select =
+      'id,customer_name,contact_number,delivery_address,latitude,longitude,notes,status,created_at,order_source,order_items(product_name,quantity,unit_price,products(category,image_url))';
+    let { data, error: err } = await supabase
       .from('orders')
-      .select(
-        'id,customer_name,contact_number,delivery_address,status,created_at,order_source,order_items(product_name,quantity,unit_price,products(category))'
-      )
+      .select(select)
       .eq('seller_id', businessId)
       .order('created_at', { ascending: false })
       .limit(200);
+    if (err) {
+      const fallback = await supabase
+        .from('orders')
+        .select(
+          'id,customer_name,contact_number,delivery_address,latitude,longitude,notes,status,created_at,order_source,order_items(product_name,quantity,unit_price)'
+        )
+        .eq('seller_id', businessId)
+        .order('created_at', { ascending: false })
+        .limit(200);
+      data = fallback.data as typeof data;
+      err = fallback.error;
+    }
     if (err) setError(err.message);
+    else setError(null);
     setRows((data ?? []) as OrderRow[]);
     setLoading(false);
   }, [businessId]);
@@ -68,6 +189,40 @@ export function OrderBoardPage({ mode }: { mode: 'water' | 'ice' | 'delivery' })
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (!businessId) return;
+    let cancelled = false;
+    void supabase
+      .from('profiles')
+      .select('latitude,longitude')
+      .eq('user_id', businessId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (cancelled) return;
+        if (typeof data?.latitude === 'number' && typeof data?.longitude === 'number') {
+          setStoreOrigin(`${data.latitude},${data.longitude}`);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [businessId]);
+
+  useEffect(() => {
+    if (!businessId) return;
+    const channel = supabase
+      .channel(`admin-orders-${mode}-${businessId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'orders', filter: `seller_id=eq.${businessId}` },
+        () => void load()
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [businessId, load, mode]);
 
   const visible = useMemo(() => {
     return rows.filter((order) => {
@@ -91,13 +246,13 @@ export function OrderBoardPage({ mode }: { mode: 'water' | 'ice' | 'delivery' })
     setRows((current) => current.map((row) => (row.id === id ? { ...row, status } : row)));
   }
 
-  const title = mode === 'ice' ? 'Ice Order Management' : mode === 'delivery' ? 'Delivery Management' : 'Water Orders';
+  const title = mode === 'ice' ? 'Ice Order Management' : mode === 'delivery' ? 'Delivery Management' : 'Water Online Orders';
   const subtitle =
     mode === 'ice'
       ? 'Online and walk-in orders that include ice. Stock stays on the shared inventory.'
       : mode === 'delivery'
         ? 'Orders the rider is preparing or bringing out.'
-        : 'Station orders that are not ice-only.';
+        : 'Online water and bottled water orders. The rider app receives the same orders.';
 
   return (
     <div>
@@ -120,17 +275,24 @@ export function OrderBoardPage({ mode }: { mode: 'water' | 'ice' | 'delivery' })
       </div>
       <div className="card card-flat" style={{ marginTop: 16 }}>
         {loading ? <p className="muted-block">Loading orders…</p> : null}
-        {!loading && visible.length === 0 ? <p className="muted-block">No orders in this view.</p> : null}
+        {!loading && visible.length === 0 ? <p className="muted-block">No online orders in this view.</p> : null}
         {visible.length > 0 ? (
           <div className="sales-table-scroll">
-            <table className="data-table">
+            <table className="data-table orders-board-table">
+              <colgroup>
+                <col className="orders-col-customer" />
+                <col className="orders-col-items" />
+                <col className="orders-col-total" />
+                <col className="orders-col-source" />
+                <col className="orders-col-status" />
+              </colgroup>
               <thead>
                 <tr>
                   <th>Customer</th>
                   <th>Items</th>
                   <th>Total</th>
                   <th>Source</th>
-                  <th>Status</th>
+                  <th className="orders-status-cell">Status</th>
                 </tr>
               </thead>
               <tbody>
@@ -143,28 +305,39 @@ export function OrderBoardPage({ mode }: { mode: 'water' | 'ice' | 'delivery' })
                         <strong>{order.customer_name}</strong>
                         <div className="muted-block">{order.contact_number}</div>
                         <div className="muted-block">{order.delivery_address}</div>
+                        {orderRoute(order, storeOrigin) ? (
+                          <a className="order-map" href={orderRoute(order, storeOrigin) ?? undefined} target="_blank" rel="noreferrer">Open in map</a>
+                        ) : null}
                       </td>
                       <td>
-                        {items.map((item, index) => (
-                          <div key={`${order.id}-${index}`}>
-                            {item.quantity} × {item.product_name}
-                          </div>
-                        ))}
+                        {items.map((item, index) => {
+                          const photo = publicWrsAssetUrl(supabase, itemProduct(item)?.image_url);
+                          return (
+                            <div key={`${order.id}-${index}`} className="order-item">
+                              {photo ? (
+                                <img className="order-item-photo" src={photo} alt="" />
+                              ) : (
+                                <span className="order-item-photo order-item-photo-empty" aria-hidden />
+                              )}
+                              <span>
+                                {item.quantity} × {item.product_name}
+                              </span>
+                            </div>
+                          );
+                        })}
                       </td>
                       <td>{money(total)}</td>
                       <td>{order.order_source === 'website' ? 'Website' : 'App'}</td>
-                      <td>
-                        <select
-                          value={order.status}
-                          aria-label={`Status for ${order.customer_name}`}
-                          onChange={(event) => void updateStatus(order.id, event.target.value as Status)}
-                        >
-                          {STATUSES.map((status) => (
-                            <option key={status} value={status}>
-                              {statusLabel(status)}
-                            </option>
-                          ))}
-                        </select>
+                      <td className="orders-status-cell">
+                        <div className="order-status">
+                          {order.status === 'cancelled' ? <span className="order-tag is-cancelled">Cancelled</span> : null}
+                          {order.status === 'delivered' ? <span className="order-tag is-delivered">Delivered</span> : null}
+                          <StatusMenu
+                            value={order.status}
+                            customerName={order.customer_name}
+                            onChange={(status) => void updateStatus(order.id, status)}
+                          />
+                        </div>
                       </td>
                     </tr>
                   );

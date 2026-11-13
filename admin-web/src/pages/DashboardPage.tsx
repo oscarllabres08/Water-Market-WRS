@@ -502,7 +502,15 @@ export function DashboardPage() {
                   <li key={product.id}>
                     <div>
                       <strong>{product.name}</strong>
-                      <small>{product.category === 'water' ? 'Water refill' : 'Others'}</small>
+                      <small>
+                        {product.category === 'water'
+                          ? 'Water refill'
+                          : product.category === 'bottled_water'
+                            ? 'Bottled water'
+                            : product.category === 'ice'
+                              ? 'Ice'
+                              : 'Others'}
+                      </small>
                     </div>
                     <div className="station-stock-meter">
                       {tracked ? <span style={{ width: `${width}%` }} /> : null}
