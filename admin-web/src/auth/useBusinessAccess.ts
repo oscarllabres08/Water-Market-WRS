@@ -21,19 +21,18 @@ export function useBusinessAccess() {
   useEffect(() => {
     if (!userId) return;
     let alive = true;
-    void supabase
-      .from('user_business_roles')
-      .select('business_id,role')
-      .eq('user_id', userId)
-      .then(({ data }) => {
+    void (async () => {
+      try {
+        const { data, error } = await supabase
+          .from('user_business_roles')
+          .select('business_id,role')
+          .eq('user_id', userId);
         if (!alive) return;
-        setRoles((data ?? []) as RoleRow[]);
-        setRolesLoading(false);
-      })
-      .catch(() => {
-        if (!alive) return;
-        setRolesLoading(false);
-      });
+        if (!error) setRoles((data ?? []) as RoleRow[]);
+      } finally {
+        if (alive) setRolesLoading(false);
+      }
+    })();
     return () => {
       alive = false;
     };
