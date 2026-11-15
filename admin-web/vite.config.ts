@@ -22,6 +22,17 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   return {
     plugins: [react(), linkPreviewPlugin(mode, env)],
-    server: { port: 5174 },
+    server: {
+      port: 5174,
+      headers: {
+        'Cache-Control': 'no-store',
+      },
+    },
+    preview: {
+      port: 4174,
+      headers: {
+        'Cache-Control': 'no-store',
+      },
+    },
   };
 });

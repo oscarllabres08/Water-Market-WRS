@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 
+import { customerApkDownloadUrl, riderApkDownloadUrl } from '../../lib/appDownloadUrls';
 import { money, publicWrsAssetUrl } from '../../lib/format';
 import { applyDocumentPreview, previewForPath } from '../../lib/linkPreview';
 import { supabase } from '../../lib/supabase';
@@ -906,7 +907,13 @@ export function WaterRefillingPage() {
                   <Icon name="check" /> GCash / Maya payment options
                 </li>
               </ul>
-              <a className="wm-btn wm-download-btn" href="/downloads/customer-app.apk" download>
+              <a
+                className="wm-btn wm-download-btn"
+                href={customerApkDownloadUrl()}
+                download="watermarket-customer.apk"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
                 Download APK <span aria-hidden>↓</span>
               </a>
               <span className="wm-download-foot">Android · Install from this page</span>
@@ -941,7 +948,13 @@ export function WaterRefillingPage() {
                 </li>
               </ul>
               {unlocked ? (
-                <a className="wm-btn wm-btn-navy wm-download-btn" href="/downloads/rider-app.apk" download>
+                <a
+                  className="wm-btn wm-btn-navy wm-download-btn"
+                  href={riderApkDownloadUrl()}
+                  download="watermarket-rider.apk"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
                   Download APK <span aria-hidden>↓</span>
                 </a>
               ) : (

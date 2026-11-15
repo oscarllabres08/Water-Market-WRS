@@ -16,6 +16,7 @@ pnpm-debug.log*
 *.jks
 *.keystore
 *.apk
+!admin-web/public/downloads/*.apk
 *.aab
 
 # Supabase CLI local artifacts (do not commit)

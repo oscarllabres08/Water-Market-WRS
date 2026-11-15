@@ -33,7 +33,7 @@ The live environment files already point at the WaterMarket Supabase project. Do
 
 Package names are `com.watermarket.customer` and `com.watermarket.rider`. EAS project IDs were removed so these apps do not attach to Water Chaste. Create new Expo projects with `eas init` in each app folder. Replace `google-services.json` after the WaterMarket Firebase project exists. Until then, push notifications still point at the previous Firebase project.
 
-APK files for the website are in `admin-web/public/downloads/`.
+APK files for the website live in `admin-web/public/downloads/` and are **committed with the repo** so deploy includes them (see `admin-web/public/downloads/README.md`).
 
 ## GitHub
 
