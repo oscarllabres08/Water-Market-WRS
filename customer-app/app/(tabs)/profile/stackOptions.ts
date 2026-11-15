@@ -11,7 +11,7 @@ export function profileSubpageScreenOptions(title: string): NativeStackNavigatio
     headerShadowVisible: false,
     headerBackTitleVisible: false,
     headerTitleStyle: {
-      fontFamily: theme.font.extrabold,
+      fontFamily: theme.font.semibold,
       fontSize: 17,
       color: theme.colors.text,
     },

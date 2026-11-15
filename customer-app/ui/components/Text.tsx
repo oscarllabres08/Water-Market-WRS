@@ -8,14 +8,16 @@ type Weight = 'regular' | 'semibold' | 'bold' | 'extrabold';
 export function Text({
   children,
   variant = 'body',
-  weight = 'regular',
+  weight,
   style,
   ...rest
 }: PropsWithChildren<TextProps & { variant?: Variant; weight?: Weight }>) {
-  const fontFamily = theme.font[weight];
+  const resolvedWeight: Weight =
+    weight ?? (variant === 'title' || variant === 'h2' ? 'semibold' : variant === 'chip' ? 'semibold' : 'regular');
+  const fontFamily = theme.font[resolvedWeight];
   const base = (() => {
-    if (variant === 'title') return { fontSize: 22, color: theme.colors.text, letterSpacing: -0.2 };
-    if (variant === 'h2') return { fontSize: 16, color: theme.colors.text, letterSpacing: -0.2 };
+    if (variant === 'title') return { fontSize: 22, color: theme.colors.text, letterSpacing: -0.1 };
+    if (variant === 'h2') return { fontSize: 16, color: theme.colors.text, letterSpacing: -0.05 };
     if (variant === 'muted') return { fontSize: 13, color: theme.colors.muted };
     if (variant === 'chip') return { fontSize: 12, color: theme.colors.text };
     return { fontSize: 14, color: theme.colors.text };

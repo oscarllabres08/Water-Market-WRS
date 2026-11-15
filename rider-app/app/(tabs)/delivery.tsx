@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Linking, Pressable, RefreshControl, ScrollView, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -6,6 +6,7 @@ import { useFocusEffect } from '@react-navigation/native';
 
 import { formatOrderDistance, orderDistanceKm } from '../../lib/orderDistance';
 import { supabase } from '../../lib/supabase';
+import { uniqueRealtimeChannelName } from '../../lib/supabaseRealtime';
 import { useAuth } from '../../providers/AuthProvider';
 import { Screen } from '../../ui/components/Screen';
 import { Text } from '../../ui/components/Text';
@@ -34,6 +35,8 @@ type Stop = {
   items: Item[];
   status: 'for_delivery' | 'in_transit' | 'delivered';
   fresh: boolean;
+  /** Orders only — false/null means rider should mark paid after delivery. */
+  paymentSettled?: boolean | null;
 };
 
 const STATION = 'Ilang-Ilang Road, Andagao, Kalibo, Aklan';
@@ -90,6 +93,7 @@ export default function DeliveryScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const loadRef = useRef<() => Promise<void>>(async () => {});
 
   const load = useCallback(async () => {
     if (!user || !businessId) {
@@ -100,7 +104,9 @@ export default function DeliveryScreen() {
     const [ordersRes, laundryRes, jobsRes] = await Promise.all([
       supabase
         .from('orders')
-        .select('id,customer_name,contact_number,delivery_address,landmark,latitude,longitude,status,order_items(product_name,quantity,products(category))')
+        .select(
+          'id,customer_name,contact_number,delivery_address,landmark,latitude,longitude,status,payment_settled,order_items(product_name,quantity,products(category))'
+        )
         .eq('seller_id', businessId)
         .order('created_at', { ascending: false })
         .limit(300),
@@ -141,6 +147,7 @@ export default function DeliveryScreen() {
       latitude: number | null;
       longitude: number | null;
       status: string;
+      payment_settled: boolean | null;
       order_items: { product_name: string; quantity: number; products: { category?: string | null } | { category?: string | null }[] | null }[] | null;
     }[]).flatMap((order) => {
       const status = deliveryBucket(order.status);
@@ -170,6 +177,7 @@ export default function DeliveryScreen() {
         items: items.map((item) => ({ name: item.product_name, quantity: item.quantity })),
         status,
         fresh: order.status === 'pending',
+        paymentSettled: order.payment_settled,
       }];
     });
 
@@ -211,6 +219,8 @@ export default function DeliveryScreen() {
     setLoading(false);
   }, [businessId, user]);
 
+  loadRef.current = load;
+
   useFocusEffect(
     useCallback(() => {
       void load();
@@ -218,17 +228,20 @@ export default function DeliveryScreen() {
   );
 
   useEffect(() => {
-    if (!user || !businessId) return;
+    if (!user?.id || !businessId) return;
+    const refresh = () => {
+      void loadRef.current();
+    };
     const channel = supabase
-      .channel(`my-deliveries-${businessId}-${user.id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `seller_id=eq.${businessId}` }, () => void load())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'laundry_bookings', filter: `seller_id=eq.${businessId}` }, () => void load())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'delivery_jobs', filter: `seller_id=eq.${businessId}` }, () => void load())
+      .channel(uniqueRealtimeChannelName(`my-deliveries-${businessId}-${user.id}`))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `seller_id=eq.${businessId}` }, refresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'laundry_bookings', filter: `seller_id=eq.${businessId}` }, refresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'delivery_jobs', filter: `seller_id=eq.${businessId}` }, refresh)
       .subscribe();
     return () => {
-      supabase.removeChannel(channel);
+      void supabase.removeChannel(channel);
     };
-  }, [businessId, load, user]);
+  }, [businessId, user?.id]);
 
   useEffect(() => {
     if (!businessId) return;
@@ -453,6 +466,8 @@ function DeliveryCard({
   const pending = stop.status === 'for_delivery';
   const initial = (stop.customer.trim()[0] || 'C').toUpperCase();
   const place = stop.address.trim() || (stop.latitude != null ? `${stop.latitude.toFixed(5)}, ${stop.longitude?.toFixed(5)}` : 'No address');
+  const showUnpaid =
+    stop.sourceKind === 'order' && stop.status === 'delivered' && stop.paymentSettled !== true;
   return (
     <View
       style={{
@@ -478,11 +493,38 @@ function DeliveryCard({
           <Text weight="extrabold" style={{ color: '#0B3A96', fontSize: 16 }}>{initial}</Text>
         </View>
         <View style={{ flex: 1, paddingRight: stop.fresh ? 52 : 8 }}>
-          <Text weight="extrabold" style={{ fontSize: 16 }}>{stop.customer}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+            <Text weight="extrabold" style={{ fontSize: 16 }}>{stop.customer}</Text>
+            {showUnpaid ? (
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 4,
+                  paddingVertical: 3,
+                  paddingHorizontal: 8,
+                  borderRadius: 999,
+                  borderWidth: 1,
+                  borderColor: 'rgba(239,68,68,0.4)',
+                  backgroundColor: 'rgba(239,68,68,0.12)',
+                }}
+              >
+                <Ionicons name="alert-circle" size={12} color={theme.colors.danger} />
+                <Text weight="extrabold" style={{ fontSize: 11, color: theme.colors.danger }}>
+                  Unpaid
+                </Text>
+              </View>
+            ) : null}
+          </View>
           <Text variant="muted" numberOfLines={2} style={{ marginTop: 2, fontSize: 13 }}>{place}</Text>
           <Text weight="bold" style={{ marginTop: 4, color: '#0074F0', fontSize: 13 }}>
             {listStatus(stop.status)}{distance ? `  ·  ${distance}` : ''}
           </Text>
+          {showUnpaid ? (
+            <Text variant="muted" weight="semibold" style={{ marginTop: 4, fontSize: 12, color: theme.colors.danger }}>
+              Tap order → Mark paid
+            </Text>
+          ) : null}
         </View>
         {stop.fresh ? (
           <View style={{ position: 'absolute', top: 0, right: 18 }}>

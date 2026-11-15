@@ -302,7 +302,7 @@ export default function ProfileIndexScreen() {
       >
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <View style={{ flex: 1 }}>
-            <Text variant="title" weight="extrabold">
+            <Text variant="title" weight="semibold">
               Profile
             </Text>
             <Text variant="muted" style={{ marginTop: 2 }}>

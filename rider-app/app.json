@@ -2,6 +2,7 @@
   "expo": {
     "name": "WaterMarket Rider",
     "slug": "watermarket-rider",
+    "owner": "llabresoscar08",
     "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/logo.png",
@@ -20,7 +21,16 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.watermarket.rider",
-      "googleServicesFile": "./GoogleService-Info.plist"
+      "googleServicesFile": "./GoogleService-Info.plist",
+      "infoPlist": {
+        "LSApplicationQueriesSchemes": [
+          "tel",
+          "telprompt",
+          "http",
+          "https",
+          "comgooglemaps"
+        ]
+      }
     },
     "android": {
       "softwareKeyboardLayoutMode": "resize",
@@ -70,7 +80,12 @@
       "enabled": false
     },
     "extra": {
-      "router": {}
+      "router": {},
+      "supabaseUrl": "https://hgauhenzssbedqvtpbpg.supabase.co",
+      "supabaseAnonKey": "sb_publishable_ucDuFRLcarhI2cvoCoK-rQ_a92VrATy",
+      "eas": {
+        "projectId": "c1415d90-5678-4c0f-b460-25191a4e7dee"
+      }
     }
   }
 }

@@ -1,11 +1,18 @@
-import { useState, type ReactNode } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { useEffect, useState, type ReactNode } from 'react';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 
+import { AdminNotificationsButton } from '../components/AdminNotificationsButton';
 import { useAuth } from '../auth/AuthProvider';
+import { useTheme } from '../theme/ThemeProvider';
 
 type NavIconId = 'overview' | 'pos' | 'bookings' | 'services' | 'sales' | 'customers' | 'expenses' | 'settings';
 
-type NavItem = { to: string; label: string; end?: boolean; icon?: NavIconId };
+type NavItem = { to: string; label: string; shortLabel?: string; end?: boolean; icon?: NavIconId };
+
+export type SettingsMenuConfig = {
+  basePath: string;
+  links: { section: string; label: string }[];
+};
 
 function NavIcon({ id }: { id: NavIconId }) {
   const common = { width: 18, height: 18, viewBox: '0 0 24 24', fill: 'none', 'aria-hidden': true as const };
@@ -81,22 +88,52 @@ export function ManagementFrame({
   nav,
   signOutTo,
   className,
+  shellClassName,
+  footRole,
+  showNotifications,
+  settingsMenu,
+  sectionMobile,
   children,
 }: {
   brand: string;
   section: string;
+  sectionMobile?: string;
   nav: NavItem[];
   signOutTo: string;
   className?: string;
+  shellClassName?: string;
+  footRole?: string;
+  showNotifications?: boolean;
+  settingsMenu?: SettingsMenuConfig;
   children: ReactNode;
 }) {
   const { profile, user, signOut, isStoreOwner } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const { darkMode, toggleDarkMode } = useTheme();
   const [open, setOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(() => location.pathname.startsWith(settingsMenu?.basePath ?? '___'));
   const displayName = profile?.display_name?.trim() || user?.email || 'Staff';
+  const settingsSection = new URLSearchParams(location.search).get('section');
+
+  useEffect(() => {
+    setOpen(false);
+    if (settingsMenu && location.pathname.startsWith(settingsMenu.basePath)) setSettingsOpen(true);
+  }, [location.pathname, settingsMenu]);
+
+  const onSettingsNav = () => {
+    if (!settingsMenu) return;
+    if (location.pathname.startsWith(settingsMenu.basePath)) {
+      setSettingsOpen((value) => !value);
+      return;
+    }
+    setSettingsOpen(true);
+    const first = settingsMenu.links[0]?.section ?? 'account';
+    navigate(`${settingsMenu.basePath}?section=${first}`);
+  };
 
   return (
-    <div className={`admin-shell${open ? ' admin-shell--nav-open' : ''}`}>
+    <div className={`admin-shell${shellClassName ? ` ${shellClassName}` : ''}${open ? ' admin-shell--nav-open' : ''}`}>
       <header className="admin-mobile-bar">
         <button type="button" className="admin-menu-btn" aria-label={open ? 'Close menu' : 'Open menu'} onClick={() => setOpen((v) => !v)}>
           {open ? '✕' : '☰'}
@@ -105,9 +142,14 @@ export function ManagementFrame({
           <img src="/logo.png" alt="" className="admin-mobile-bar-logo" />
           <div className="admin-mobile-bar-text">
             <span className="admin-mobile-bar-title">WaterMarket</span>
-            <span className="admin-mobile-bar-page">{section}</span>
+            <span className="admin-mobile-bar-page">{sectionMobile ?? section}</span>
           </div>
         </div>
+        {showNotifications ? (
+          <div className="admin-mobile-bar-actions">
+            <AdminNotificationsButton placement="header" />
+          </div>
+        ) : null}
       </header>
       <button type="button" className="admin-nav-backdrop" aria-hidden={!open} onClick={() => setOpen(false)} />
       <aside className="admin-sidebar">
@@ -136,16 +178,73 @@ export function ManagementFrame({
                       </span>
                     ) : null}
                     <span className="admin-nav-label">{item.label}</span>
+                    {item.shortLabel ? (
+                      <span className="admin-nav-label admin-nav-label--short" aria-hidden>
+                        {item.shortLabel}
+                      </span>
+                    ) : null}
                   </span>
                 </NavLink>
               ))}
+
+              {settingsMenu ? (
+                <>
+                  <button
+                    type="button"
+                    className={`admin-nav-link admin-nav-link--button${location.pathname.startsWith(settingsMenu.basePath) ? ' active' : ''}`}
+                    aria-expanded={settingsOpen}
+                    onClick={onSettingsNav}
+                  >
+                    <span className="admin-nav-link-inner">
+                      <span className="admin-nav-icon-wrap">
+                        <NavIcon id="settings" />
+                      </span>
+                      <span className="admin-nav-label">Settings</span>
+                    </span>
+                    <span className="store-status-caret" aria-hidden>
+                      {settingsOpen ? '▴' : '▾'}
+                    </span>
+                  </button>
+                  {settingsOpen ? (
+                    <div className="admin-subnav">
+                      {settingsMenu.links.map((link) => (
+                        <NavLink
+                          key={link.section}
+                          to={`${settingsMenu.basePath}?section=${link.section}`}
+                          className={() =>
+                            location.pathname.startsWith(settingsMenu.basePath) && (settingsSection ?? settingsMenu.links[0]?.section) === link.section
+                              ? 'admin-subnav-link active'
+                              : 'admin-subnav-link'
+                          }
+                          onClick={() => setOpen(false)}
+                        >
+                          {link.label}
+                        </NavLink>
+                      ))}
+                      <button
+                        type="button"
+                        className={`admin-subnav-toggle${darkMode ? ' on' : ''}`}
+                        role="switch"
+                        aria-checked={darkMode}
+                        aria-label={darkMode ? 'Dark mode on' : 'Dark mode off'}
+                        onClick={toggleDarkMode}
+                      >
+                        <span>Dark mode</span>
+                        <span className="theme-switch" aria-hidden>
+                          <span className="theme-switch-knob" />
+                        </span>
+                      </button>
+                    </div>
+                  ) : null}
+                </>
+              ) : null}
             </nav>
           </div>
           <div className="admin-sidebar-foot">
             <div className="admin-user-row">
               <div className="admin-user-meta">
                 <span className="admin-user">{displayName}</span>
-                <span className="admin-user-role">{isStoreOwner ? 'Master admin' : 'Staff'}</span>
+                <span className="admin-user-role">{footRole ?? (isStoreOwner ? 'Master admin' : 'Staff')}</span>
               </div>
               <button
                 type="button"
@@ -168,6 +267,7 @@ export function ManagementFrame({
             <span aria-hidden>/</span>
             <strong>{section}</strong>
           </p>
+          {showNotifications ? <AdminNotificationsButton placement="header" /> : null}
         </header>
         <main className="admin-main">
           <div className={`admin-main-inner admin-main-inner--wide${className ? ` ${className}` : ''}`}>{children}</div>

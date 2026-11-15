@@ -2,6 +2,7 @@
   "expo": {
     "name": "WaterMarket Customer",
     "slug": "watermarket-customer",
+    "owner": "llabresoscar08",
     "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/logo.png",
@@ -71,7 +72,12 @@
       "enabled": false
     },
     "extra": {
-      "router": {}
+      "router": {},
+      "supabaseUrl": "https://hgauhenzssbedqvtpbpg.supabase.co",
+      "supabaseAnonKey": "sb_publishable_ucDuFRLcarhI2cvoCoK-rQ_a92VrATy",
+      "eas": {
+        "projectId": "438328df-d512-4541-9d04-72ea643baf8d"
+      }
     }
   }
 }

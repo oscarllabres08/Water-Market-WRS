@@ -2,7 +2,7 @@ import { useEffect, useRef, type ReactNode } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 
 import { useAuth } from './auth/AuthProvider';
-import { IDLE_LIMIT_MS, isPortalPath, isStaffArea } from './auth/portalGuard';
+import { IDLE_LIMIT_MS, isIdleSignOutEnabled, isPortalPath } from './auth/portalGuard';
 import { useBusinessAccess } from './auth/useBusinessAccess';
 import { AdminLayout } from './layout/AdminLayout';
 import { AuthPage } from './pages/AuthPage';
@@ -31,12 +31,10 @@ import {
   LaundrySettingsPage,
 } from './pages/laundry/LaundryPages';
 import {
-  OwnerAnalyticsPage,
-  OwnerBusinessesPage,
   OwnerDashboardPage,
   OwnerExpensesPage,
   OwnerLayout,
-  OwnerReportsPage,
+  OwnerSalesPage,
   OwnerSettingsPage,
   OwnerStaffPage,
 } from './pages/owner/OwnerPages';
@@ -142,7 +140,7 @@ function AdminSessionGuard() {
   const { pathname } = useLocation();
   const signOutRef = useRef(signOutWithNotice);
   signOutRef.current = signOutWithNotice;
-  const onDuty = Boolean(user) && isStaffArea(pathname);
+  const onDuty = Boolean(user) && isIdleSignOutEnabled(pathname);
 
   useEffect(() => {
     if (!onDuty) return;
@@ -219,11 +217,12 @@ export default function App() {
 
       <Route path="overall-sales" element={<ProtectedOwner />}>
         <Route index element={<OwnerDashboardPage />} />
-        <Route path="businesses" element={<OwnerBusinessesPage />} />
+        <Route path="sales" element={<OwnerSalesPage />} />
         <Route path="expenses" element={<OwnerExpensesPage />} />
-        <Route path="analytics" element={<OwnerAnalyticsPage />} />
-        <Route path="reports" element={<OwnerReportsPage />} />
         <Route path="staff" element={<OwnerStaffPage />} />
+        <Route path="businesses" element={<Navigate to="/overall-sales/sales" replace />} />
+        <Route path="analytics" element={<Navigate to="/overall-sales/sales" replace />} />
+        <Route path="reports" element={<Navigate to="/overall-sales/sales" replace />} />
         <Route path="settings" element={<OwnerSettingsPage />} />
       </Route>
 

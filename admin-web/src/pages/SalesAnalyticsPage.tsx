@@ -12,7 +12,7 @@ import {
   downloadMonthSpreadsheet,
   downloadRangeSpreadsheet,
   downloadYearSpreadsheet,
-} from '../lib/exportSalesSpreadsheet';
+} from '../lib/salesSpreadsheetDownload';
 
 import { money } from '../lib/format';
 
@@ -197,6 +197,8 @@ export function SalesAnalyticsPage() {
 
   const walkShare = data && data.totalSales > 0 ? (data.walkInSales / data.totalSales) * 100 : 0;
 
+  const iceShare = data && data.totalSales > 0 ? (data.iceSales / data.totalSales) * 100 : 0;
+
   const paidShare = data && data.totalOrderCount > 0 ? (data.paidOrders / data.totalOrderCount) * 100 : 0;
 
   const unpaidShare = data && data.totalOrderCount > 0 ? (data.unpaidOrders / data.totalOrderCount) * 100 : 0;
@@ -334,6 +336,8 @@ export function SalesAnalyticsPage() {
             <KpiCard label="Online Sales" value={money(data.onlineSales)} sub={`${onlineShare.toFixed(1)}% of total sales`} />
 
             <KpiCard label="Walk-in Sales" value={money(data.walkInSales)} sub={`${walkShare.toFixed(1)}% of total sales`} />
+
+            <KpiCard label="Ice Sales" value={money(data.iceSales)} sub={`${iceShare.toFixed(1)}% of total sales · online + walk-in`} />
 
             <KpiCard label="Paid Orders" value={String(data.paidOrders)} sub={`${paidShare.toFixed(1)}% of orders`} />
 

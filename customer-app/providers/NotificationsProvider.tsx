@@ -4,6 +4,7 @@ import * as Device from 'expo-device';
 import { AppState, type AppStateStatus, Platform } from 'react-native';
 
 import { supabase } from '../lib/supabase';
+import { uniqueRealtimeChannelName } from '../lib/supabaseRealtime';
 import { noteRemoteNotification, playNotificationSound } from '../lib/playNotificationSound';
 import { setNotificationRuntimePrefs } from '../lib/notificationRuntime';
 import { useAuth } from './AuthProvider';
@@ -156,7 +157,7 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
     }
     loadPrefs();
     const channel = supabase
-      .channel(`notif-prefs-customer-${userId}`)
+      .channel(uniqueRealtimeChannelName(`notif-prefs-customer-${userId}`))
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `user_id=eq.${userId}` }, () => loadPrefs())
       .subscribe();
     return () => {
@@ -169,7 +170,7 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
     if (!user) return;
     const userId = user.id;
     const channel = supabase
-      .channel(`notif-badge-customer-${userId}`)
+      .channel(uniqueRealtimeChannelName(`notif-badge-customer-${userId}`))
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'notifications', filter: `recipient_id=eq.${userId}` },

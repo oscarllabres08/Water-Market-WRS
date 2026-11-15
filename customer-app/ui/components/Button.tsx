@@ -86,7 +86,7 @@ export function Button({ variant = 'primary', title, leadingIcon, children, styl
           {leadingIcon}
           {typeof title === 'string' ? (
             <Text
-              weight="extrabold"
+              weight="semibold"
               numberOfLines={1}
               style={{
                 color: colors.text,

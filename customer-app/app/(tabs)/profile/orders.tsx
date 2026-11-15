@@ -128,7 +128,7 @@ export default function MyOrdersScreen() {
                   backgroundColor: selected ? theme.colors.primary : '#fff',
                 }}
               >
-                <Text weight="extrabold" style={{ color: selected ? '#fff' : theme.colors.text }}>
+                <Text weight="semibold" style={{ color: selected ? '#fff' : theme.colors.text }}>
                   {opt.label}
                   {!loading ? ` (${count})` : ''}
                 </Text>
@@ -147,7 +147,7 @@ export default function MyOrdersScreen() {
 
         {(filter === 'all' || filter === 'active') && (loading || filter === 'active' || shownActive.length > 0) ? (
           <Card style={{ marginTop: theme.spacing.md }}>
-            <Text variant="h2" weight="extrabold">
+            <Text variant="h2" weight="semibold">
               Active
             </Text>
             {loading ? (
@@ -171,7 +171,7 @@ export default function MyOrdersScreen() {
 
         {(filter === 'all' || filter === 'delivered') && (loading || filter === 'delivered' || shownDelivered.length > 0) ? (
           <Card style={{ marginTop: filter === 'delivered' ? theme.spacing.md : theme.spacing.sm }}>
-            <Text variant="h2" weight="extrabold">
+            <Text variant="h2" weight="semibold">
               Delivered
             </Text>
             {loading ? (
@@ -207,7 +207,7 @@ export default function MyOrdersScreen() {
               alignItems: 'center',
             }}
           >
-            <Text weight="bold" style={{ color: theme.colors.primary }}>
+            <Text weight="semibold" style={{ color: theme.colors.primary }}>
               Show more
             </Text>
           </Pressable>
@@ -231,7 +231,7 @@ function OrderRowCard({ row, onPress }: { row: OrderRow; onPress: () => void }) 
     >
       <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
         <View style={{ flex: 1 }}>
-          <Text weight="extrabold">{row.customer_name || 'Order'}</Text>
+          <Text weight="semibold">{row.customer_name || 'Order'}</Text>
           <Text variant="muted" style={{ marginTop: 2 }}>
             {new Date(row.created_at).toLocaleString()}
           </Text>
@@ -249,7 +249,7 @@ function OrderRowCard({ row, onPress }: { row: OrderRow; onPress: () => void }) 
             backgroundColor: 'rgba(0,114,240,0.06)',
           }}
         >
-          <Text variant="chip" weight="extrabold" style={{ color: 'rgba(7,20,46,0.8)' }}>
+          <Text variant="chip" weight="semibold" style={{ color: 'rgba(7,20,46,0.8)' }}>
             {statusLabel(row.status)}
           </Text>
         </View>

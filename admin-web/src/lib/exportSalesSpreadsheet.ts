@@ -3,7 +3,6 @@ import type {
   DayExportPayload,
   ExportTransaction,
   MonthExportPayload,
-  RangeExportPayload,
   YearExportPayload,
 } from './salesReportData';
 
@@ -513,6 +512,7 @@ type SummaryNumbers = {
   totalSales: number;
   onlineSales: number;
   walkInSales: number;
+  iceSales: number;
   onlineOrderCount: number;
   walkInTxnCount: number;
   paidOrders: number;
@@ -564,6 +564,7 @@ function pushSummary(rows: SheetRow[], data: SummaryNumbers, transactions: Expor
   rows.push(['Total sales (PHP)', roundMoney(data.totalSales)]);
   rows.push(['Online sales (PHP)', roundMoney(data.onlineSales)]);
   rows.push(['Walk-in sales (PHP)', roundMoney(data.walkInSales)]);
+  rows.push(['Ice sales (PHP)', roundMoney(data.iceSales)]);
   rows.push(['Paid amount (PHP)', roundMoney(moneySum(transactions, 'Paid'))]);
   rows.push(['Unpaid amount (PHP)', roundMoney(moneySum(transactions, 'Unpaid'))]);
   rows.push(['Online orders (paid)', data.onlineOrderCount]);
@@ -639,7 +640,7 @@ function pushTransactions(rows: SheetRow[], transactions: ExportTransaction[], e
   ]);
 }
 
-function buildLineItemRows(
+export function buildLineItemRows(
   title: string,
   periodLabel: string,
   periodValue: string | number,
@@ -686,7 +687,7 @@ function buildLineItemRows(
   return { rows, merges };
 }
 
-function buildDayRows(payload: DayExportPayload): { rows: SheetRow[]; merges: XlsxMerge[] } {
+export function buildDayRows(payload: DayExportPayload): { rows: SheetRow[]; merges: XlsxMerge[] } {
   const { dayLabel, generatedAt, data, transactions } = payload;
   const rows: SheetRow[] = [];
   const merges: XlsxMerge[] = [];
@@ -700,7 +701,10 @@ function buildDayRows(payload: DayExportPayload): { rows: SheetRow[]; merges: Xl
   return { rows, merges };
 }
 
-function buildMonthRows(payload: MonthExportPayload, title = 'WaterMarket — Monthly Sales Report'): { rows: SheetRow[]; merges: XlsxMerge[] } {
+export function buildMonthRows(
+  payload: MonthExportPayload,
+  title = 'WaterMarket — Monthly Sales Report'
+): { rows: SheetRow[]; merges: XlsxMerge[] } {
   const { monthLabel, generatedAt, data, transactions } = payload;
   const rows: SheetRow[] = [];
   const merges: XlsxMerge[] = [];
@@ -728,7 +732,7 @@ function buildMonthRows(payload: MonthExportPayload, title = 'WaterMarket — Mo
   return { rows, merges };
 }
 
-function buildYearRows(payload: YearExportPayload): { rows: SheetRow[]; merges: XlsxMerge[] } {
+export function buildYearRows(payload: YearExportPayload): { rows: SheetRow[]; merges: XlsxMerge[] } {
   const { year, generatedAt, months, yearTotals, categoryTotals, transactions } = payload;
   const rows: SheetRow[] = [];
   const merges: XlsxMerge[] = [];
@@ -823,7 +827,7 @@ function applySheetLayout(ws: Worksheet, rows: SheetRow[]) {
 
 type SheetSpec = { name: string; rows: SheetRow[]; merges: XlsxMerge[] };
 
-async function writeWorkbook(sheets: SheetSpec[], filename: string) {
+export async function writeWorkbook(sheets: SheetSpec[], filename: string) {
   const XLSX = await loadXlsx();
   const wb = XLSX.utils.book_new();
   for (const sheet of sheets) {
@@ -837,70 +841,3 @@ async function writeWorkbook(sheets: SheetSpec[], filename: string) {
   XLSX.writeFile(wb, out);
 }
 
-export async function downloadDaySpreadsheet(payload: DayExportPayload, filename: string) {
-  const report = buildDayRows(payload);
-  const lines = buildLineItemRows('WaterMarket — Daily Line Items', 'Report date', payload.dayLabel, payload.generatedAt, payload.transactions);
-  await writeWorkbook(
-    [
-      { name: 'Sales Report', ...report },
-      { name: 'Line Items', ...lines },
-    ],
-    filename
-  );
-}
-
-export async function downloadMonthSpreadsheet(payload: MonthExportPayload, filename: string) {
-  const report = buildMonthRows(payload);
-  const lines = buildLineItemRows(
-    'WaterMarket — Monthly Line Items',
-    'Report period',
-    payload.monthLabel,
-    payload.generatedAt,
-    payload.transactions
-  );
-  await writeWorkbook(
-    [
-      { name: 'Sales Report', ...report },
-      { name: 'Line Items', ...lines },
-    ],
-    filename
-  );
-}
-
-export async function downloadRangeSpreadsheet(payload: RangeExportPayload, filename: string) {
-  const report = buildMonthRows(
-    {
-      monthLabel: payload.periodLabel,
-      generatedAt: payload.generatedAt,
-      data: payload.data,
-      transactions: payload.transactions,
-    },
-    payload.reportTitle
-  );
-  const lines = buildLineItemRows(
-    'WaterMarket — Line Items',
-    'Report period',
-    payload.periodLabel,
-    payload.generatedAt,
-    payload.transactions
-  );
-  await writeWorkbook(
-    [
-      { name: 'Sales Report', ...report },
-      { name: 'Line Items', ...lines },
-    ],
-    filename
-  );
-}
-
-export async function downloadYearSpreadsheet(payload: YearExportPayload, filename: string) {
-  const report = buildYearRows(payload);
-  const lines = buildLineItemRows('WaterMarket — Annual Line Items', 'Report year', payload.year, payload.generatedAt, payload.transactions);
-  await writeWorkbook(
-    [
-      { name: 'Sales Report', ...report },
-      { name: 'Line Items', ...lines },
-    ],
-    filename
-  );
-}

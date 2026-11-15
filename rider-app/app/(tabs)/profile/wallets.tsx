@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Image, Pressable, ScrollView, Switch, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import * as ImagePicker from 'expo-image-picker';
@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
 import { supabase } from '../../../lib/supabase';
+import { uniqueRealtimeChannelName } from '../../../lib/supabaseRealtime';
 import { imageUploadPresets, prepareImageForUpload } from '../../../lib/prepareImageForUpload';
 import { readPreparedImageBytes } from '../../../lib/readPreparedImageBytes';
 import { useAuth } from '../../../providers/AuthProvider';
@@ -46,6 +47,7 @@ export default function WalletsScreen() {
     GCash: { ...emptyDraft },
     Maya: { ...emptyDraft },
   });
+  const loadRef = useRef<() => Promise<void>>(async () => {});
 
   const load = useCallback(async () => {
     if (!user || !businessId) return;
@@ -84,19 +86,24 @@ export default function WalletsScreen() {
     setLoading(false);
   }, [user, businessId]);
 
+  loadRef.current = load;
+
   useEffect(() => {
-    if (!user || !businessId) return;
-    load();
+    void load();
+  }, [load]);
+
+  useEffect(() => {
+    if (!user?.id || !businessId) return;
     const channel = supabase
-      .channel(`seller-wallets-${businessId}`)
+      .channel(uniqueRealtimeChannelName(`seller-wallets-${businessId}`))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'ewallet_accounts', filter: `seller_id=eq.${businessId}` }, () =>
-        load()
+        void loadRef.current()
       )
       .subscribe();
     return () => {
-      supabase.removeChannel(channel);
+      void supabase.removeChannel(channel);
     };
-  }, [user?.id, businessId, load]);
+  }, [user?.id, businessId]);
 
   const row = byProvider[tab];
   const draft = drafts[tab];

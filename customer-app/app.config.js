@@ -19,13 +19,17 @@ if (retiredHosts.some((host) => supabaseUrl.includes(host) || supabaseAnonKey.in
   throw new Error('Refusing to build against a retired Supabase project. Use the current WaterMarket project.');
 }
 
+const baseExtra = base.expo.extra ?? {};
+
 module.exports = () => ({
   expo: {
     ...base.expo,
     extra: {
-      ...base.expo.extra,
+      ...baseExtra,
       supabaseUrl,
       supabaseAnonKey,
+      router: baseExtra.router ?? {},
+      ...(baseExtra.eas ? { eas: baseExtra.eas } : {}),
     },
   },
 });

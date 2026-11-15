@@ -61,7 +61,7 @@ function TabButton({
       </Animated.View>
       <Text
         variant="chip"
-        weight={isFocused ? 'extrabold' : 'semibold'}
+        weight={isFocused ? 'semibold' : 'regular'}
         numberOfLines={1}
         style={{
           color: isFocused ? theme.colors.primary : INACTIVE_LABEL,

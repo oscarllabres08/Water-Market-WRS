@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, Image, Pressable, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
 import { supabase } from '../../../lib/supabase';
+import { uniqueRealtimeChannelName } from '../../../lib/supabaseRealtime';
 import {
   containerLabelsForCustomer,
   joinContainerIds,
@@ -35,6 +36,7 @@ export default function ProfileCustomersListScreen() {
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const loadRef = useRef<() => Promise<void>>(async () => {});
 
   const load = useCallback(async () => {
     if (!businessId) return;
@@ -214,27 +216,30 @@ export default function ProfileCustomersListScreen() {
     setLoading(false);
   }, [businessId]);
 
+  loadRef.current = load;
+
   useEffect(() => {
     void load();
   }, [load]);
 
   useEffect(() => {
     if (!businessId) return;
+    const refresh = () => {
+      void loadRef.current();
+    };
     const ch = supabase
-      .channel(`profile-customers-${businessId}`)
+      .channel(uniqueRealtimeChannelName(`profile-customers-${businessId}`))
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'seller_customer_container_balance', filter: `seller_id=eq.${businessId}` },
-        () => void load()
+        refresh
       )
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `seller_id=eq.${businessId}` }, () =>
-        void load()
-      )
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `seller_id=eq.${businessId}` }, refresh)
       .subscribe();
     return () => {
-      supabase.removeChannel(ch);
+      void supabase.removeChannel(ch);
     };
-  }, [businessId, load]);
+  }, [businessId]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();

@@ -14,3 +14,11 @@ export function isPortalLogin(pathname: string) {
 export function isStaffArea(pathname: string) {
   return isPortalPath(pathname) && !isPortalLogin(pathname);
 }
+
+/** WRS & laundry portals stay signed in until manual sign-out; overall-sales keeps idle timeout. */
+export function isIdleSignOutEnabled(pathname: string) {
+  if (!isStaffArea(pathname)) return false;
+  if (pathname.startsWith('/wrs-management')) return false;
+  if (pathname.startsWith('/laundry-management')) return false;
+  return true;
+}

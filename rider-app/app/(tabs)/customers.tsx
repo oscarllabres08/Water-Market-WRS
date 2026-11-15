@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, Image, Pressable, TextInput, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
 import { supabase } from '../../lib/supabase';
+import { uniqueRealtimeChannelName } from '../../lib/supabaseRealtime';
 import { publicWrsAssetUrl } from '../../lib/publicAssetUrl';
 import { useAuth } from '../../providers/AuthProvider';
 import { Screen } from '../../ui/components/Screen';
@@ -104,6 +105,7 @@ export default function CustomersScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const loadRef = useRef<() => Promise<void>>(async () => {});
 
   const load = useCallback(async () => {
     if (!user || !businessId) return;
@@ -306,6 +308,8 @@ export default function CustomersScreen() {
     setLoading(false);
   }, [user, businessId]);
 
+  loadRef.current = load;
+
   useFocusEffect(
     useCallback(() => {
       if (!user || !businessId) return;
@@ -314,26 +318,29 @@ export default function CustomersScreen() {
   );
 
   useEffect(() => {
-    if (!user || !businessId) return;
+    if (!user?.id || !businessId) return;
+    const refresh = () => {
+      void loadRef.current();
+    };
     const channel = supabase
-      .channel(`seller-customers-${businessId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `seller_id=eq.${businessId}` }, () => load())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => load())
+      .channel(uniqueRealtimeChannelName(`seller-customers-${businessId}`))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `seller_id=eq.${businessId}` }, refresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, refresh)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'seller_customer_container_balance', filter: `seller_id=eq.${businessId}` },
-        () => load()
+        refresh
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'seller_hidden_customers', filter: `seller_id=eq.${businessId}` },
-        () => load()
+        refresh
       )
       .subscribe();
     return () => {
-      supabase.removeChannel(channel);
+      void supabase.removeChannel(channel);
     };
-  }, [user, businessId, load]);
+  }, [user?.id, businessId]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();

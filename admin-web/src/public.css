@@ -1078,6 +1078,250 @@
   font-style: italic;
 }
 
+.wm-downloads {
+  padding: clamp(22px, 4vw, 36px);
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at 8% 12%, rgba(130, 198, 255, 0.35), transparent 42%),
+    radial-gradient(circle at 92% 88%, rgba(31, 124, 240, 0.12), transparent 38%),
+    linear-gradient(165deg, #ffffff 0%, #f3f9ff 45%, #e8f4ff 100%);
+  box-shadow: 0 18px 44px rgba(18, 53, 127, 0.1);
+}
+
+.wm-downloads-head {
+  max-width: 640px;
+  margin-bottom: 8px;
+}
+
+.wm-downloads-head .wm-kicker {
+  margin: 0 0 6px;
+}
+
+.wm-download-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(16px, 3vw, 22px);
+  margin-top: 22px;
+}
+
+.wm-download-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: clamp(18px, 3vw, 26px);
+  border-radius: 24px;
+  border: 1px solid rgba(31, 124, 240, 0.12);
+  background: linear-gradient(165deg, rgba(255, 255, 255, 0.98) 0%, rgba(245, 250, 255, 0.95) 100%);
+  box-shadow: 0 14px 36px rgba(18, 53, 127, 0.09);
+  transition: transform 0.28s ease, box-shadow 0.28s ease;
+}
+
+.wm-download-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 46px rgba(18, 53, 127, 0.14);
+}
+
+.wm-download-card--customer {
+  background:
+    linear-gradient(160deg, rgba(255, 255, 255, 0.98) 0%, rgba(232, 246, 255, 0.92) 100%);
+}
+
+.wm-download-card--rider {
+  background:
+    linear-gradient(160deg, rgba(255, 255, 255, 0.98) 0%, rgba(237, 243, 255, 0.94) 55%, rgba(226, 236, 255, 0.9) 100%);
+}
+
+.wm-download-pin {
+  top: 16px;
+  right: 16px;
+  z-index: 2;
+  padding: 6px 12px;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: rgba(7, 20, 46, 0.08);
+  color: var(--wm-navy);
+  border: 1px solid rgba(7, 20, 46, 0.08);
+}
+
+.wm-download-visual {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 148px;
+  padding: 8px 0 4px;
+}
+
+.wm-download-phone {
+  width: 108px;
+  padding: 10px 8px 12px;
+  border-radius: 22px;
+  background: linear-gradient(165deg, #0d2040 0%, #1a3d6e 55%, #2a6ec4 100%);
+  box-shadow:
+    0 16px 32px rgba(13, 32, 64, 0.35),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+
+.wm-download-phone--rider {
+  background: linear-gradient(165deg, #07142e 0%, #12325c 50%, #1f4a86 100%);
+}
+
+.wm-download-phone::before {
+  content: '';
+  display: block;
+  width: 36px;
+  height: 5px;
+  margin: 0 auto 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.wm-download-phone-screen {
+  display: grid;
+  place-items: center;
+  min-height: 108px;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #f7fbff 0%, #d9ecff 100%);
+}
+
+.wm-download-phone-screen img {
+  display: block;
+  border-radius: 14px;
+  object-fit: contain;
+}
+
+.wm-download-float {
+  position: absolute;
+  right: 18%;
+  bottom: 12%;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  color: var(--wm-blue);
+  background: #fff;
+  box-shadow: 0 10px 24px rgba(31, 124, 240, 0.22);
+}
+
+.wm-download-float svg {
+  width: 22px;
+  height: 22px;
+}
+
+.wm-download-float--rider {
+  color: var(--wm-navy);
+  box-shadow: 0 10px 24px rgba(7, 20, 46, 0.18);
+}
+
+.wm-download-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+}
+
+.wm-download-body h3 {
+  margin: 0;
+  font-size: 1.35rem;
+  color: var(--wm-navy);
+}
+
+.wm-download-lead {
+  margin: 0;
+  color: var(--wm-muted);
+  font-weight: 700;
+  line-height: 1.5;
+  font-size: 0.95rem;
+}
+
+.wm-download-badge {
+  align-self: flex-start;
+  padding: 5px 11px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.wm-download-badge--open {
+  color: #0b5cab;
+  background: rgba(31, 124, 240, 0.12);
+}
+
+.wm-download-badge--staff {
+  color: #07142e;
+  background: rgba(7, 20, 46, 0.08);
+}
+
+.wm-download-perks {
+  margin: 4px 0 6px;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+
+.wm-download-perks li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: var(--wm-navy);
+  font-weight: 700;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.wm-download-perks svg {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  color: var(--wm-blue);
+}
+
+.wm-download-btn {
+  margin-top: auto;
+  width: 100%;
+  justify-content: center;
+}
+
+.wm-download-foot {
+  display: block;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--wm-muted);
+}
+
+.wm-download-tagline {
+  margin-top: clamp(20px, 4vw, 32px);
+  text-align: center;
+  width: 100%;
+}
+
+.wm-download-pin-form {
+  text-align: center;
+}
+
+.wm-download-pin-icon {
+  width: 52px;
+  height: 52px;
+  margin: 0 auto 12px;
+  display: grid;
+  place-items: center;
+  border-radius: 16px;
+  color: var(--wm-navy);
+  background: linear-gradient(160deg, #eef6ff, #d7ecff);
+}
+
+.wm-download-pin-icon svg {
+  width: 26px;
+  height: 26px;
+}
+
 .wm-split {
   display: grid;
   grid-template-columns: 1.6fr 0.8fr;
@@ -1821,6 +2065,7 @@
   .wm-hero,
   .wm-split,
   .wm-app-row,
+  .wm-download-grid,
   .wm-products,
   .wm-service-row,
   .wm-about-band,
@@ -2799,6 +3044,49 @@
     linear-gradient(115deg, #10284a 0%, #1a4a86 54%, #2a6ec4 100%);
   color: #f7fbff;
   box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+}
+
+.wm-public.is-dark .wm-downloads {
+  background:
+    radial-gradient(circle at 8% 12%, rgba(80, 150, 230, 0.28), transparent 42%),
+    linear-gradient(165deg, rgba(14, 34, 68, 0.96) 0%, rgba(10, 28, 58, 0.94) 100%);
+  border: 1px solid rgba(170, 210, 255, 0.14);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+}
+
+.wm-public.is-dark .wm-download-card {
+  background: linear-gradient(160deg, rgba(26, 62, 118, 0.92), rgba(10, 28, 58, 0.96));
+  border-color: rgba(170, 210, 255, 0.14);
+}
+
+.wm-public.is-dark .wm-download-body h3,
+.wm-public.is-dark .wm-download-perks li {
+  color: #f7fbff;
+}
+
+.wm-public.is-dark .wm-download-lead,
+.wm-public.is-dark .wm-download-foot {
+  color: #d7e6f7;
+}
+
+.wm-public.is-dark .wm-download-phone-screen {
+  background: linear-gradient(180deg, #eef6ff 0%, #c8e4ff 100%);
+}
+
+.wm-public.is-dark .wm-download-float {
+  background: rgba(20, 48, 92, 0.95);
+  color: #b9dcff;
+}
+
+.wm-public.is-dark .wm-download-pin {
+  background: rgba(7, 20, 46, 0.45);
+  color: #b9dcff;
+  border-color: rgba(170, 210, 255, 0.2);
+}
+
+.wm-public.is-dark .wm-download-pin-icon {
+  background: linear-gradient(160deg, rgba(38, 82, 148, 0.9), rgba(18, 44, 86, 0.95));
+  color: #b9dcff;
 }
 
 .wm-public.is-dark .wm-service,

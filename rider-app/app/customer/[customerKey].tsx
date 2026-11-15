@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Linking, Pressable, ScrollView, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 
+import { openPhoneDialer } from '../../lib/phoneCall';
 import { supabase } from '../../lib/supabase';
+import { uniqueRealtimeChannelName } from '../../lib/supabaseRealtime';
 import { useAuth } from '../../providers/AuthProvider';
 import { Screen } from '../../ui/components/Screen';
 import { Card } from '../../ui/components/Card';
@@ -68,6 +70,7 @@ export default function CustomerDetailsScreen() {
   const [markingAllReturned, setMarkingAllReturned] = useState(false);
   const [markingAllPaid, setMarkingAllPaid] = useState(false);
   const [outstandingConfirm, setOutstandingConfirm] = useState<OutstandingConfirmConfig | null>(null);
+  const refreshRef = useRef<() => Promise<void>>(async () => {});
 
   /** Inline confirmations for bulk actions (not reminders — reminders use modals). */
   const toastStyle = useMemo(
@@ -216,9 +219,15 @@ export default function CustomerDetailsScreen() {
     setLoading(false);
   }, [sellerId, customerId, isWalkIn, params.name, params.phone, params.address]);
 
+  refreshRef.current = refreshCustomer;
+
   async function callCustomer() {
     if (!phone.trim()) return;
-    await Linking.openURL(`tel:${phone.trim()}`);
+    try {
+      await openPhoneDialer(phone);
+    } catch {
+      Alert.alert('Call', `Dial: ${phone.trim()}`);
+    }
   }
 
   async function openInGoogleMaps() {
@@ -367,12 +376,13 @@ export default function CustomerDetailsScreen() {
 
   useEffect(() => {
     if (!sellerId || !customerId || isWalkIn) return;
-    void refreshCustomer();
+    void refreshRef.current();
+    const refresh = () => {
+      void refreshRef.current();
+    };
     const channel = supabase
-      .channel(`seller-customer-detail-${sellerId}-${customerId}`)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `user_id=eq.${customerId}` }, () =>
-        refreshCustomer()
-      )
+      .channel(uniqueRealtimeChannelName(`seller-customer-detail-${sellerId}-${customerId}`))
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `user_id=eq.${customerId}` }, refresh)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'orders', filter: `seller_id=eq.${sellerId}` },
@@ -380,7 +390,7 @@ export default function CustomerDetailsScreen() {
           const next = payload.new as any;
           const old = payload.old as any;
           const cid = String(next?.customer_id ?? old?.customer_id ?? '');
-          if (cid === customerId) refreshCustomer();
+          if (cid === customerId) refresh();
         }
       )
       .on(
@@ -390,14 +400,14 @@ export default function CustomerDetailsScreen() {
           const next = payload.new as { customer_id?: string } | null;
           const old = payload.old as { customer_id?: string } | null;
           const cid = String(next?.customer_id ?? old?.customer_id ?? '');
-          if (cid === customerId) refreshCustomer();
+          if (cid === customerId) refresh();
         }
       )
       .subscribe();
     return () => {
-      supabase.removeChannel(channel);
+      void supabase.removeChannel(channel);
     };
-  }, [sellerId, customerId, refreshCustomer, isWalkIn]);
+  }, [sellerId, customerId, isWalkIn]);
 
   return (
     <Screen>

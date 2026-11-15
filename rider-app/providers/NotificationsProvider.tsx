@@ -7,6 +7,7 @@ import { noteRemoteNotification, playNotificationSound } from '../lib/playNotifi
 import { registerSellerPushToken } from '../lib/registerPushToken';
 import { setNotificationRuntimePrefs } from '../lib/notificationRuntime';
 import { supabase } from '../lib/supabase';
+import { uniqueRealtimeChannelName } from '../lib/supabaseRealtime';
 import { useAuth } from './AuthProvider';
 
 type Ctx = {
@@ -136,7 +137,7 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
     }
     loadPrefs();
     const channel = supabase
-      .channel(`notif-prefs-${user.id}`)
+      .channel(uniqueRealtimeChannelName(`notif-prefs-${user.id}`))
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `user_id=eq.${user.id}` }, () => loadPrefs())
       .subscribe();
     return () => {
@@ -148,7 +149,7 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
   useEffect(() => {
     if (!user) return;
     const channel = supabase
-      .channel(`notif-badge-${user.id}`)
+      .channel(uniqueRealtimeChannelName(`notif-badge-${user.id}`))
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'notifications', filter: `recipient_id=eq.${user.id}` },

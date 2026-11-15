@@ -61,8 +61,10 @@ export const theme = {
   font: {
     regular: 'Nunito_400Regular',
     semibold: 'Nunito_600SemiBold',
-    bold: 'Nunito_700Bold',
-    extrabold: 'Nunito_800ExtraBold',
+    /** Softer than 700 — use for emphasis without heavy blocks. */
+    bold: 'Nunito_600SemiBold',
+    /** Headers and pills: 700 instead of 800 for a smoother look app-wide. */
+    extrabold: 'Nunito_700Bold',
   },
   gradient: {
     primary: ['#00B7F5', '#0074F0'] as const,

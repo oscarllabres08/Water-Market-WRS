@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, FlatList, Image, Pressable, Switch, TextInput, useWindowDimensions, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import Animated, { FadeInDown } from 'react-native-reanimated';
@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 
 import { supabase } from '../../lib/supabase';
+import { uniqueRealtimeChannelName } from '../../lib/supabaseRealtime';
 import { useAuth } from '../../providers/AuthProvider';
 import { Screen } from '../../ui/components/Screen';
 import { Card } from '../../ui/components/Card';
@@ -51,6 +52,7 @@ export default function ProductsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const loadRef = useRef<() => Promise<void>>(async () => {});
 
   const load = useCallback(async () => {
     if (!user || !businessId) return;
@@ -67,21 +69,26 @@ export default function ProductsScreen() {
     setLoading(false);
   }, [user, businessId]);
 
+  loadRef.current = load;
+
   useEffect(() => {
-    if (!user || !businessId) return;
-    load();
+    void load();
+  }, [load]);
+
+  useEffect(() => {
+    if (!user?.id || !businessId) return;
     const channel = supabase
-      .channel(`seller-products-${businessId}`)
+      .channel(uniqueRealtimeChannelName(`seller-products-${businessId}`))
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'products', filter: `seller_id=eq.${businessId}` },
-        () => load()
+        () => void loadRef.current()
       )
       .subscribe();
     return () => {
-      supabase.removeChannel(channel);
+      void supabase.removeChannel(channel);
     };
-  }, [user, businessId, load]);
+  }, [user?.id, businessId]);
 
   // Ensures newly-added/edited items show immediately when coming back to this tab.
   useFocusEffect(

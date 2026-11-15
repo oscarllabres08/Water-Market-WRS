@@ -163,7 +163,7 @@ export default function HomeScreen() {
           <Text weight="semibold" style={{ color: theme.colors.accent, fontSize: 13 }}>
             Doorstep water refilling
           </Text>
-          <Text weight="bold" style={{ color: theme.colors.navyDeep, fontSize: 24, lineHeight: 30, letterSpacing: -0.4 }}>
+          <Text weight="semibold" style={{ color: theme.colors.navyDeep, fontSize: 24, lineHeight: 30, letterSpacing: -0.2 }}>
             Pure water, delivered to you
           </Text>
           <Text weight="regular" style={{ color: theme.colors.muted, fontSize: 14, lineHeight: 20 }}>
@@ -175,7 +175,7 @@ export default function HomeScreen() {
         </Card>
 
         <Card>
-          <Text weight="bold" style={{ color: theme.colors.primaryDark, fontSize: 18 }}>
+          <Text weight="semibold" style={{ color: theme.colors.primaryDark, fontSize: 18 }}>
             Why WaterMarket
           </Text>
           <Text weight="regular" style={{ color: theme.colors.muted, marginTop: 3, lineHeight: 18 }}>
@@ -194,7 +194,7 @@ export default function HomeScreen() {
         </Card>
 
         <Card>
-          <Text weight="bold" style={{ color: theme.colors.primaryDark, fontSize: 18 }}>
+          <Text weight="semibold" style={{ color: theme.colors.primaryDark, fontSize: 18 }}>
             How it works
           </Text>
           <View style={{ marginTop: 12, gap: 8 }}>
@@ -208,7 +208,7 @@ export default function HomeScreen() {
         </Card>
 
         <Card>
-          <Text weight="bold" style={{ color: theme.colors.primaryDark, fontSize: 18 }}>
+          <Text weight="semibold" style={{ color: theme.colors.primaryDark, fontSize: 18 }}>
             Our services
           </Text>
           <View style={{ marginTop: 8 }}>

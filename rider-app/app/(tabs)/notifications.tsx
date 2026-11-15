@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { navigateFromSellerNotification } from '../../lib/notificationNavigation';
 import { supabase } from '../../lib/supabase';
+import { uniqueRealtimeChannelName } from '../../lib/supabaseRealtime';
 import { useAuth } from '../../providers/AuthProvider';
 import { useNotifications } from '../../providers/NotificationsProvider';
 import { Screen } from '../../ui/components/Screen';
@@ -41,6 +42,7 @@ export default function NotificationsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const loadRef = useRef<() => Promise<void>>(async () => {});
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -57,6 +59,8 @@ export default function NotificationsScreen() {
     setLoading(false);
   }, [user]);
 
+  loadRef.current = load;
+
   useFocusEffect(
     useCallback(() => {
       void load();
@@ -65,15 +69,17 @@ export default function NotificationsScreen() {
   );
 
   useEffect(() => {
-    if (!user) return;
+    if (!user?.id) return;
     const ch = supabase
-      .channel(`seller-notifs-tab-${user.id}-${Date.now()}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications', filter: `recipient_id=eq.${user.id}` }, () => void load())
+      .channel(uniqueRealtimeChannelName(`seller-notifs-tab-${user.id}`))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications', filter: `recipient_id=eq.${user.id}` }, () =>
+        void loadRef.current()
+      )
       .subscribe();
     return () => {
-      supabase.removeChannel(ch);
+      void supabase.removeChannel(ch);
     };
-  }, [user, load]);
+  }, [user?.id]);
 
   const localUnread = useMemo(() => rows.filter((r) => !r.read_at).length, [rows]);
 

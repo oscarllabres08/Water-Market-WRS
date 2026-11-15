@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ScrollView } from 'react-native';
+import { ScrollView, View } from 'react-native';
 
 import { supabase } from '../../../lib/supabase';
 import { useAuth } from '../../../providers/AuthProvider';

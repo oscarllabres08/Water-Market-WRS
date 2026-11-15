@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -19,6 +19,7 @@ import { haversineKm } from '../../lib/geo';
 import { getOrderDistanceDisplay } from '../../lib/orderDistance';
 import { publicWrsAssetUrl } from '../../lib/publicAssetUrl';
 import { supabase } from '../../lib/supabase';
+import { uniqueRealtimeChannelName } from '../../lib/supabaseRealtime';
 import { useAuth } from '../../providers/AuthProvider';
 import { Screen } from '../../ui/components/Screen';
 import { Card } from '../../ui/components/Card';
@@ -97,6 +98,7 @@ export default function OrdersScreen() {
   const [locationRefreshing, setLocationRefreshing] = useState(false);
   const [avatarPathByCustomerId, setAvatarPathByCustomerId] = useState<Record<string, string | null>>({});
   const { seedIfNeeded, markViewed, isNewOrder, viewedOrderIds } = useViewedOrders(businessId);
+  const loadRef = useRef<() => Promise<void>>(async () => {});
 
   const load = useCallback(async () => {
     if (!user || !businessId) return;
@@ -134,6 +136,8 @@ export default function OrdersScreen() {
     setLoading(false);
   }, [user, businessId, seedIfNeeded]);
 
+  loadRef.current = load;
+
   useFocusEffect(
     useCallback(() => {
       if (!user || !businessId) return;
@@ -142,21 +146,20 @@ export default function OrdersScreen() {
   );
 
   useEffect(() => {
-    if (!user || !businessId) return;
-    const instanceId = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    if (!user?.id || !businessId) return;
     const channel = supabase
-      .channel(`seller-orders-${businessId}-${instanceId}`)
+      .channel(uniqueRealtimeChannelName(`seller-orders-${businessId}`))
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'orders', filter: `seller_id=eq.${businessId}` },
-        () => load()
+        () => void loadRef.current()
       )
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      void supabase.removeChannel(channel);
     };
-  }, [user, businessId, load]);
+  }, [user?.id, businessId]);
 
   useEffect(() => {
     if (!user || !businessId) return;

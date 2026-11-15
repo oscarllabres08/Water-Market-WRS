@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
 
 import { onPendingReminderRefresh } from '../lib/pendingReminderEvents';
@@ -10,6 +10,7 @@ import {
 import { getBannerSnoozeUntil, snoozeBanner } from '../lib/pendingReminderSnooze';
 import { getViewedOrderIds } from '../lib/viewedOrders';
 import { supabase } from '../lib/supabase';
+import { uniqueRealtimeChannelName } from '../lib/supabaseRealtime';
 import { useAuth } from '../providers/AuthProvider';
 
 export function usePendingOrderReminder() {
@@ -17,6 +18,7 @@ export function usePendingOrderReminder() {
   const scopeId = businessId && user?.id ? `${businessId}:${user.id}` : null;
   const [staleOrders, setStaleOrders] = useState<StalePendingOrder[]>([]);
   const [snoozeUntil, setSnoozeUntil] = useState(0);
+  const refreshRef = useRef<() => Promise<void>>(async () => {});
 
   const refresh = useCallback(async () => {
     if (!businessId || !user || !scopeId) {
@@ -34,6 +36,8 @@ export function usePendingOrderReminder() {
       await requestPendingOrderReminders(stale.map((o) => o.id));
     }
   }, [businessId, user, scopeId]);
+
+  refreshRef.current = refresh;
 
   const dismissBanner = useCallback(async () => {
     if (!scopeId) return;
@@ -63,17 +67,17 @@ export function usePendingOrderReminder() {
   useEffect(() => {
     if (!businessId) return;
     const channel = supabase
-      .channel(`seller-pending-reminder-${businessId}`)
+      .channel(uniqueRealtimeChannelName(`seller-pending-reminder-${businessId}`))
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'orders', filter: `seller_id=eq.${businessId}` },
-        () => void refresh()
+        () => void refreshRef.current()
       )
       .subscribe();
     return () => {
-      supabase.removeChannel(channel);
+      void supabase.removeChannel(channel);
     };
-  }, [businessId, refresh]);
+  }, [businessId]);
 
   useEffect(() => {
     if (snoozeUntil <= Date.now()) return;

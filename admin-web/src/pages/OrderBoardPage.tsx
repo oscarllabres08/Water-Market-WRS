@@ -239,12 +239,25 @@ export function OrderBoardPage({ mode }: { mode: 'water' | 'ice' | 'delivery' })
   }, [mode, rows, statusFilter]);
 
   async function updateStatus(id: string, status: Status) {
-    const { error: err } = await supabase.from('orders').update({ status }).eq('id', id);
+    const row = rows.find((entry) => entry.id === id);
+    const items = row?.order_items ?? [];
+    const iceOnly = items.length > 0 && items.every((item) => itemCategory(item) === 'ice');
+    const patch: { status: Status; payment_settled?: boolean; payment_settled_at?: string } = { status };
+    if (
+      mode === 'ice' &&
+      status === 'delivered' &&
+      iceOnly &&
+      row?.order_source !== 'pos'
+    ) {
+      patch.payment_settled = true;
+      patch.payment_settled_at = new Date().toISOString();
+    }
+    const { error: err } = await supabase.from('orders').update(patch).eq('id', id);
     if (err) {
       setError(err.message);
       return;
     }
-    setRows((current) => current.map((row) => (row.id === id ? { ...row, status } : row)));
+    setRows((current) => current.map((entry) => (entry.id === id ? { ...entry, status } : entry)));
   }
 
   const title = mode === 'ice' ? 'Ice Order Management' : mode === 'delivery' ? 'Delivery Management' : 'Water Online Orders';

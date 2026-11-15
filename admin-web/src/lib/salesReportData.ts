@@ -21,7 +21,15 @@ export function formatSalePaymentMethod(type: 'online' | 'walk-in', method: stri
 
 export type DashboardPeriod = 'week' | 'month' | 'year';
 
-type OrderRow = {
+type SaleLineItem = {
+  product_name: string;
+  unit_price: number;
+  quantity: number;
+  product_id?: string | null;
+  products?: { category?: CatalogCategory | null } | { category?: CatalogCategory | null }[] | null;
+};
+
+export type OrderRow = {
   id: string;
   created_at: string;
   status: string;
@@ -30,18 +38,25 @@ type OrderRow = {
   payment_settled_at?: string | null;
   payment_method: string | null;
   order_source?: string | null;
-  order_items: { product_name: string; unit_price: number; quantity: number; product_id?: string | null }[];
+  order_items: SaleLineItem[];
 };
 
-type PosRow = {
+export type PosRow = {
   id: string;
   created_at: string;
   customer_name?: string | null;
   payment_settled?: boolean | null;
   payment_settled_at?: string | null;
   payment_method?: string | null;
-  pos_sale_items: { product_name: string; unit_price: number; quantity: number; product_id?: string | null }[];
+  pos_sale_items: SaleLineItem[];
 };
+
+function lineCategory(it: SaleLineItem, productCats: Map<string, CatalogCategory>): SalesCategoryKey {
+  const nested = Array.isArray(it.products) ? it.products[0] : it.products;
+  const fromJoin = nested?.category ?? null;
+  const fromMap = it.product_id ? productCats.get(it.product_id) : null;
+  return categoryFromProductName(it.product_name, fromJoin ?? fromMap ?? null);
+}
 
 export type TimelinePoint = {
   key: string;
@@ -67,6 +82,7 @@ export const RECENT_SALES_PAGE = 10;
 export type SalesDashboardData = {
   onlineSales: number;
   walkInSales: number;
+  iceSales: number;
   totalSales: number;
   onlineOrderCount: number;
   walkInTxnCount: number;
@@ -154,6 +170,36 @@ function lineTotal(items: { unit_price: number; quantity: number }[]): number {
   return items.reduce((s, it) => s + Number(it.unit_price) * Number(it.quantity), 0);
 }
 
+/** Paid ice line revenue from online orders and walk-in POS (same rules as sales analytics). */
+export function sumIceSalesToday(
+  orders: OrderRow[],
+  posSales: PosRow[],
+  productCats: Map<string, CatalogCategory>,
+  todayStart: Date
+): number {
+  let ice = 0;
+  for (const o of orders) {
+    if (o.order_source === 'pos') continue;
+    if (!orderCountsTowardOnlineSales(o)) continue;
+    const recordedAt = saleRecordedAt(o);
+    if (!recordedAt || recordedAt < todayStart) continue;
+    for (const it of o.order_items ?? []) {
+      if (lineCategory(it, productCats) !== 'ice') continue;
+      ice += Number(it.unit_price) * Number(it.quantity);
+    }
+  }
+  for (const s of posSales) {
+    if (!posCountsTowardWalkInSales(s)) continue;
+    const recordedAt = saleRecordedAt(s);
+    if (!recordedAt || recordedAt < todayStart) continue;
+    for (const it of s.pos_sale_items ?? []) {
+      if (lineCategory(it, productCats) !== 'ice') continue;
+      ice += Number(it.unit_price) * Number(it.quantity);
+    }
+  }
+  return ice;
+}
+
 function bucketKey(d: Date, period: DashboardPeriod): string {
   if (period === 'year') return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   const y = d.getFullYear();
@@ -194,7 +240,7 @@ function initTimeline(from: Date, to: Date, period: DashboardPeriod): Map<string
   return map;
 }
 
-async function loadProductCategories(businessId: string): Promise<Map<string, CatalogCategory>> {
+export async function loadProductCategories(businessId: string): Promise<Map<string, CatalogCategory>> {
   const { data } = await supabase.from('products').select('id,category').eq('seller_id', businessId);
   const map = new Map<string, CatalogCategory>();
   for (const p of data ?? []) {
@@ -254,7 +300,7 @@ function aggregate(
       }
 
       for (const it of o.order_items ?? []) {
-        const cat = categoryFromProductName(it.product_name, it.product_id ? productCats.get(it.product_id) : null);
+        const cat = lineCategory(it, productCats);
         const lineAmt = Number(it.unit_price) * Number(it.quantity);
         categoryTotals[cat] += lineAmt;
         const prev = prodMap.get(it.product_name) ?? { name: it.product_name, units: 0, revenue: 0 };
@@ -300,7 +346,7 @@ function aggregate(
       }
 
       for (const it of s.pos_sale_items ?? []) {
-        const cat = categoryFromProductName(it.product_name, it.product_id ? productCats.get(it.product_id) : null);
+        const cat = lineCategory(it, productCats);
         const lineAmt = Number(it.unit_price) * Number(it.quantity);
         categoryTotals[cat] += lineAmt;
         const prev = prodMap.get(it.product_name) ?? { name: it.product_name, units: 0, revenue: 0 };
@@ -337,6 +383,7 @@ function aggregate(
   return {
     onlineSales,
     walkInSales,
+    iceSales: categoryTotals.ice,
     totalSales: onlineSales + walkInSales,
     onlineOrderCount,
     walkInTxnCount,
@@ -367,14 +414,14 @@ async function fetchRange(businessId: string, from: Date, to: Date): Promise<{ o
     supabase
       .from('orders')
       .select(
-        'id,created_at,status,customer_name,payment_settled,payment_settled_at,payment_method,order_source,order_items(product_name,unit_price,quantity,product_id)'
+        'id,created_at,status,customer_name,payment_settled,payment_settled_at,payment_method,order_source,order_items(product_name,unit_price,quantity,product_id,products(category))'
       )
       .eq('seller_id', businessId)
       .or(rangeOr),
     supabase
       .from('pos_sales')
       .select(
-        'id,created_at,customer_name,payment_settled,payment_settled_at,payment_method,pos_sale_items(product_name,unit_price,quantity,product_id)'
+        'id,created_at,customer_name,payment_settled,payment_settled_at,payment_method,pos_sale_items(product_name,unit_price,quantity,product_id,products(category))'
       )
       .eq('seller_id', businessId)
       .or(rangeOr),

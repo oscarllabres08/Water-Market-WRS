@@ -150,10 +150,7 @@ function paymentMethodLabel(m: string | null | undefined) {
   return 'Cash on delivery (COD)';
 }
 
-/** Strip spaces for tel: URIs; keeps + and digits as typed. */
-function dialablePhone(raw: string) {
-  return raw.trim().replace(/\s/g, '');
-}
+import { dialablePhone, openPhoneDialer } from '../../lib/phoneCall';
 
 export default function OrderDetailsScreen() {
   const router = useRouter();
@@ -343,7 +340,16 @@ export default function OrderDetailsScreen() {
       setOrder((o) => (o ? { ...o, status: previous } : o));
       setError(err.message || 'Failed to update status');
     } else {
-      setOrder((o) => (o ? { ...o, status: next } : o));
+      let payment_settled = order.payment_settled;
+      if (next === 'delivered') {
+        const { data: refreshed } = await supabase
+          .from('orders')
+          .select('payment_settled')
+          .eq('id', order.id)
+          .maybeSingle();
+        if (typeof refreshed?.payment_settled === 'boolean') payment_settled = refreshed.payment_settled;
+      }
+      setOrder((o) => (o ? { ...o, status: next, payment_settled } : o));
     }
     setUpdating(false);
   }
@@ -538,21 +544,10 @@ export default function OrderDetailsScreen() {
       Alert.alert('No number', 'This order has no contact number.');
       return;
     }
-    const tel = dialablePhone(order.contact_number);
-    if (!tel) {
-      Alert.alert('Invalid number', 'Could not read a phone number to dial.');
-      return;
-    }
-    const url = `tel:${tel}`;
     try {
-      const supported = await Linking.canOpenURL(url);
-      if (!supported) {
-        Alert.alert('Call', `Dial: ${order.contact_number}`);
-        return;
-      }
-      await Linking.openURL(url);
+      await openPhoneDialer(order.contact_number);
     } catch {
-      Alert.alert('Call', `Dial: ${order.contact_number}`);
+      Alert.alert('Call', `Dial: ${dialablePhone(order.contact_number) || order.contact_number}`);
     }
   }
 

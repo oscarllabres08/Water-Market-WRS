@@ -4,6 +4,9 @@ export function categoryFromProductName(name: string, dbCategory?: 'water' | 'ot
   if (dbCategory === 'ice') return 'ice';
   if (dbCategory === 'water' || dbCategory === 'bottled_water') return 'water';
   const n = name.toLowerCase();
+  if (/ice\s*cube|ice\s*block|crushed\s*ice|\bice\b/.test(n) && !/service|price|fee|delivery/.test(n)) {
+    return 'ice';
+  }
   if (/water|refill|mineral|alkaline|distilled/.test(n) && !/container|gallon jug|dispenser/.test(n)) {
     return 'water';
   }

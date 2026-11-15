@@ -70,6 +70,13 @@ function Icon({ name }: { name: 'drop' | 'ice' | 'shirt' | 'phone' | 'rider' | '
       </svg>
     );
   }
+  if (name === 'drop') {
+    return (
+      <svg {...common}>
+        <path d="M12 3.2c2.8 3.6 5.2 6.4 5.2 9.2a5.2 5.2 0 11-10.4 0c0-2.8 2.4-5.6 5.2-9.2z" stroke="currentColor" strokeWidth="1.7" />
+      </svg>
+    );
+  }
   return (
     <svg {...common}>
       <path d="M12 3.2c2.8 3.6 5.2 6.4 5.2 9.2a5.2 5.2 0 11-10.4 0c0-2.8 2.4-5.6 5.2-9.2z" stroke="currentColor" strokeWidth="1.7" />
@@ -866,51 +873,117 @@ export function WaterRefillingPage() {
           <img src="/store2.png" alt="WaterMarket delivery tricycle parked at the station" />
         </figure>
       </section>
-      <section className="wm-panel">
-        <div className="wm-panel-head">
-          <h2>Download Our Mobile Apps</h2>
-          <p>Order water, track deliveries, and more.</p>
+      <section className="wm-panel wm-downloads" aria-labelledby="wm-downloads-title">
+        <div className="wm-panel-head wm-downloads-head">
+          <p className="wm-kicker">Mobile apps</p>
+          <h2 id="wm-downloads-title">Download Our Mobile Apps</h2>
+          <p>Order purified water, track deliveries, and manage routes — straight from your Android phone.</p>
         </div>
-        <div className="wm-app-row">
-          <article className="wm-app">
-            <span className="wm-service-icon"><Icon name="phone" /></span>
-            <div>
-              <strong>Customer App</strong>
-              <small>for Online Orders</small>
+        <div className="wm-download-grid">
+          <article className="wm-download-card wm-download-card--customer">
+            <div className="wm-download-visual" aria-hidden>
+              <div className="wm-download-phone">
+                <div className="wm-download-phone-screen">
+                  <img src="/logo.png" alt="" width={72} height={72} />
+                </div>
+              </div>
+              <span className="wm-download-float wm-download-float--drop">
+                <Icon name="drop" />
+              </span>
             </div>
-            <a className="wm-btn" href="/downloads/customer-app.apk" download>
-              Download App <span aria-hidden>↓</span>
-            </a>
-          </article>
-          <article className="wm-app">
-            <span className="wm-pin">PIN Required</span>
-            <span className="wm-service-icon"><Icon name="rider" /></span>
-            <div>
-              <strong>Rider App</strong>
-              <small>for Riders Only</small>
-            </div>
-            {unlocked ? (
-              <a className="wm-btn" href="/downloads/rider-app.apk" download>
-                Download App <span aria-hidden>↓</span>
+            <div className="wm-download-body">
+              <span className="wm-download-badge wm-download-badge--open">For customers</span>
+              <h3>Customer App</h3>
+              <p className="wm-download-lead">Place orders, pay online, and follow your delivery in real time.</p>
+              <ul className="wm-download-perks">
+                <li>
+                  <Icon name="check" /> Browse water &amp; ice products
+                </li>
+                <li>
+                  <Icon name="check" /> Saved address &amp; order history
+                </li>
+                <li>
+                  <Icon name="check" /> GCash / Maya payment options
+                </li>
+              </ul>
+              <a className="wm-btn wm-download-btn" href="/downloads/customer-app.apk" download>
+                Download APK <span aria-hidden>↓</span>
               </a>
-            ) : (
-              <button type="button" className="wm-btn" onClick={() => setPinOpen(true)}>
-                Download App <span aria-hidden>↓</span>
-              </button>
-            )}
+              <span className="wm-download-foot">Android · Install from this page</span>
+            </div>
           </article>
-          <p className="wm-script">Clean Water. Healthy Life.</p>
+
+          <article className="wm-download-card wm-download-card--rider">
+            <span className="wm-pin wm-download-pin">PIN required</span>
+            <div className="wm-download-visual" aria-hidden>
+              <div className="wm-download-phone wm-download-phone--rider">
+                <div className="wm-download-phone-screen">
+                  <img src="/logo.png" alt="" width={72} height={72} />
+                </div>
+              </div>
+              <span className="wm-download-float wm-download-float--rider">
+                <Icon name="rider" />
+              </span>
+            </div>
+            <div className="wm-download-body">
+              <span className="wm-download-badge wm-download-badge--staff">Staff &amp; riders</span>
+              <h3>Rider App</h3>
+              <p className="wm-download-lead">Accept deliveries, update status, call customers, and get new-order alerts.</p>
+              <ul className="wm-download-perks">
+                <li>
+                  <Icon name="check" /> Delivery map &amp; live order board
+                </li>
+                <li>
+                  <Icon name="check" /> Push notifications for new orders
+                </li>
+                <li>
+                  <Icon name="check" /> Authorized team only
+                </li>
+              </ul>
+              {unlocked ? (
+                <a className="wm-btn wm-btn-navy wm-download-btn" href="/downloads/rider-app.apk" download>
+                  Download APK <span aria-hidden>↓</span>
+                </a>
+              ) : (
+                <button type="button" className="wm-btn wm-btn-navy wm-download-btn" onClick={() => setPinOpen(true)}>
+                  Enter PIN to download <span aria-hidden>↓</span>
+                </button>
+              )}
+              <span className="wm-download-foot">Android · PIN from WRS Settings</span>
+            </div>
+          </article>
         </div>
+        <p className="wm-script wm-download-tagline">Clean Water. Healthy Life.</p>
       </section>
       {pinOpen ? (
         <div className="wm-modal" role="presentation" onClick={() => !busy && setPinOpen(false)}>
-          <form className="wm-book" role="dialog" aria-labelledby="rider-pin-title" onClick={(event) => event.stopPropagation()} onSubmit={(event) => void verify(event)}>
-            <h2 id="rider-pin-title">Rider app PIN</h2>
-            <p>Authorized WaterMarket riders only. The PIN is set in WRS Settings.</p>
-            <label htmlFor="rider-pin">PIN</label>
-            <input id="rider-pin" type="password" value={pin} onChange={(event) => setPin(event.target.value)} placeholder="Enter the rider PIN" required />
+          <form
+            className="wm-book wm-download-pin-form"
+            role="dialog"
+            aria-labelledby="rider-pin-title"
+            onClick={(event) => event.stopPropagation()}
+            onSubmit={(event) => void verify(event)}
+          >
+            <span className="wm-download-pin-icon" aria-hidden>
+              <Icon name="rider" />
+            </span>
+            <h2 id="rider-pin-title">Unlock rider app</h2>
+            <p>Authorized WaterMarket riders only. Ask the store owner for the download PIN (WRS Settings).</p>
+            <label htmlFor="rider-pin">Download PIN</label>
+            <input
+              id="rider-pin"
+              type="password"
+              inputMode="numeric"
+              autoComplete="off"
+              value={pin}
+              onChange={(event) => setPin(event.target.value)}
+              placeholder="Enter PIN"
+              required
+            />
             {error ? <p className="wm-error">{error}</p> : null}
-            <button className="wm-btn wm-btn-block" type="submit" disabled={busy}>{busy ? 'Checking…' : 'Unlock download'}</button>
+            <button className="wm-btn wm-btn-block wm-btn-navy" type="submit" disabled={busy}>
+              {busy ? 'Checking…' : 'Unlock download'}
+            </button>
           </form>
         </div>
       ) : null}

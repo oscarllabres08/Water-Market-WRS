@@ -2,13 +2,20 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { SalesBarChart } from '../components/SalesCharts';
-import { AlertIcon, BoxIcon, DropIcon, PeopleIcon, PesoIcon, ReceiptIcon, StarIcon, TrendIcon } from '../components/UiIcons';
+import { AlertIcon, BoxIcon, DropIcon, IceIcon, PeopleIcon, PesoIcon, ReceiptIcon, StarIcon, TrendIcon } from '../components/UiIcons';
 import { useAuth } from '../auth/AuthProvider';
 import { todayDateInputValue } from '../lib/expenseTypes';
 import { money, publicWrsAssetUrl } from '../lib/format';
 import { LOW_STOCK_THRESHOLD } from '../lib/inventoryStock';
 import { orderCountsTowardOnlineSales, posCountsTowardWalkInSales, saleRecordedAt } from '../lib/orderSalesEligible';
-import { loadSalesDashboard, type TimelinePoint } from '../lib/salesReportData';
+import {
+  loadProductCategories,
+  loadSalesDashboard,
+  sumIceSalesToday,
+  type OrderRow,
+  type PosRow,
+  type TimelinePoint,
+} from '../lib/salesReportData';
 import { supabase } from '../lib/supabase';
 
 type RecentOrderRow = {
@@ -101,6 +108,7 @@ export function DashboardPage() {
   const { businessId, profile } = useAuth();
   const [onlineToday, setOnlineToday] = useState(0);
   const [walkInToday, setWalkInToday] = useState(0);
+  const [iceToday, setIceToday] = useState(0);
   const [pendingCount, setPendingCount] = useState(0);
   const [recent, setRecent] = useState<RecentOrderRow[]>([]);
   const [recentHasMore, setRecentHasMore] = useState(false);
@@ -171,16 +179,20 @@ export function DashboardPage() {
 
     const today = todayDateInputValue();
 
-    const [ordersRes, posRes, pendingRes, recentResult, staffRes, prodRes, lowStockRes, expensesRes, ordersCountRes, posCountRes, loyaltyRes, onlineContainersRes, posContainersRes, snapshotRes, week] =
+    const [ordersRes, posRes, pendingRes, recentResult, staffRes, prodRes, lowStockRes, expensesRes, ordersCountRes, posCountRes, loyaltyRes, onlineContainersRes, posContainersRes, snapshotRes, week, productCats] =
       await Promise.all([
       supabase
         .from('orders')
-        .select('id,status,created_at,payment_settled,payment_settled_at,payment_method,order_source,order_items(unit_price,quantity)')
+        .select(
+          'id,status,created_at,payment_settled,payment_settled_at,payment_method,order_source,customer_name,order_items(product_name,unit_price,quantity,product_id,products(category))'
+        )
         .eq('seller_id', businessId)
         .or(`and(payment_settled.eq.true,payment_settled_at.gte.${from}),and(created_at.gte.${from})`),
       supabase
         .from('pos_sales')
-        .select('id,created_at,payment_settled,payment_settled_at,pos_sale_items(unit_price,quantity)')
+        .select(
+          'id,created_at,customer_name,payment_settled,payment_settled_at,payment_method,pos_sale_items(product_name,unit_price,quantity,product_id,products(category))'
+        )
         .eq('seller_id', businessId)
         .or(`and(payment_settled.eq.true,payment_settled_at.gte.${from}),and(created_at.gte.${from})`),
       supabase.from('orders').select('id', { count: 'exact', head: true }).eq('seller_id', businessId).eq('status', 'pending'),
@@ -217,6 +229,7 @@ export function DashboardPage() {
         .order('name')
         .limit(6),
       loadSalesDashboard(businessId, 'week').catch(() => null),
+      loadProductCategories(businessId),
     ]);
 
     let online = 0;
@@ -265,6 +278,14 @@ export function DashboardPage() {
 
     setOnlineToday(online);
     setWalkInToday(walk);
+    setIceToday(
+      sumIceSalesToday(
+        (ordersRes.data ?? []) as OrderRow[],
+        (posRes.data ?? []) as PosRow[],
+        productCats,
+        todayStart
+      )
+    );
     setExpensesToday(expenses);
     setPendingCount(pendingRes.count ?? 0);
     setRecent(recentResult.rows);
@@ -368,6 +389,16 @@ export function DashboardPage() {
             <span className="station-stat-label">Orders today</span>
             <strong>{ordersToday}</strong>
             <em>{pendingCount} pending</em>
+          </div>
+        </article>
+        <article className="station-stat tone-cyan">
+          <span className="station-stat-icon" aria-hidden><IceIcon /></span>
+          <div>
+            <span className="station-stat-label">Ice sales today</span>
+            <strong>{money(iceToday)}</strong>
+            <em>
+              <Link to="/wrs-management/sales">Sales report</Link>
+            </em>
           </div>
         </article>
         <article className="station-stat tone-cyan">

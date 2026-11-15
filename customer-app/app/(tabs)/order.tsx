@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -18,6 +18,7 @@ import { useRouter } from 'expo-router';
 import { useAuth } from '../../providers/AuthProvider';
 import { useNotifications } from '../../providers/NotificationsProvider';
 import { supabase } from '../../lib/supabase';
+import { uniqueRealtimeChannelName } from '../../lib/supabaseRealtime';
 import { imageUploadPresets, prepareImageForUpload } from '../../lib/prepareImageForUpload';
 import { readPreparedImageBytes } from '../../lib/readPreparedImageBytes';
 import { Screen } from '../../ui/components/Screen';
@@ -149,6 +150,7 @@ export default function OrderScreen() {
   const [gcashQrModalOpen, setGcashQrModalOpen] = useState(false);
   const [gcashQrDownloading, setGcashQrDownloading] = useState(false);
   const [gcashQrHint, setGcashQrHint] = useState<string | null>(null);
+  const loadProductsRef = useRef<(opts?: { silent?: boolean }) => Promise<void>>(async () => {});
 
   const loadProducts = useCallback(
     async ({ silent }: { silent?: boolean } = {}) => {
@@ -203,6 +205,8 @@ export default function OrderScreen() {
     [sellerId]
   );
 
+  loadProductsRef.current = loadProducts;
+
   useEffect(() => {
     loadProducts();
   }, [loadProducts]);
@@ -241,17 +245,17 @@ export default function OrderScreen() {
   useEffect(() => {
     if (!sellerId) return;
     const channel = supabase
-      .channel(`customer-products-${sellerId}`)
+      .channel(uniqueRealtimeChannelName(`customer-products-${sellerId}`))
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'products', filter: `seller_id=eq.${sellerId}` },
-        () => loadProducts({ silent: true })
+        () => void loadProductsRef.current({ silent: true })
       )
       .subscribe();
     return () => {
-      supabase.removeChannel(channel);
+      void supabase.removeChannel(channel);
     };
-  }, [sellerId, loadProducts]);
+  }, [sellerId]);
 
   useEffect(() => {
     if (authLoading) return;
