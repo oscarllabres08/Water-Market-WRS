@@ -5,7 +5,7 @@
     "owner": "llabresoscar08",
     "version": "1.0.1",
     "orientation": "portrait",
-    "icon": "./assets/logo.png",
+    "icon": "./assets/adaptive-icon.png",
     "scheme": "watermarketcustomer",
     "userInterfaceStyle": "automatic",
     "androidStatusBar": {
@@ -27,8 +27,8 @@
       "softwareKeyboardLayoutMode": "resize",
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/logo.png",
-        "backgroundColor": "#FFFFFF"
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#E8F4FC"
       },
       "package": "com.watermarket.customer",
       "versionCode": 2,

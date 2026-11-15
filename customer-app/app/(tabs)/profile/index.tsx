@@ -1,6 +1,6 @@
 import type { ComponentProps } from 'react';
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Image, Pressable, RefreshControl, ScrollView, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, RefreshControl, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
@@ -10,6 +10,7 @@ import { useNotifications } from '../../../providers/NotificationsProvider';
 import { supabase } from '../../../lib/supabase';
 import { imageUploadPresets, prepareImageForUpload } from '../../../lib/prepareImageForUpload';
 import { readPreparedImageBytes } from '../../../lib/readPreparedImageBytes';
+import { KeyboardAwareScrollView } from '../../../ui/components/KeyboardAwareScrollView';
 import { Screen } from '../../../ui/components/Screen';
 import { Card } from '../../../ui/components/Card';
 import { Text } from '../../../ui/components/Text';
@@ -287,7 +288,8 @@ export default function ProfileIndexScreen() {
         }}
       />
       <NotificationsMenu visible={notifOpen} onClose={() => setNotifOpen(false)} />
-      <ScrollView
+      <KeyboardAwareScrollView
+        offset={72}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -298,7 +300,7 @@ export default function ProfileIndexScreen() {
             }}
           />
         }
-        contentContainerStyle={{ padding: theme.spacing.md, paddingBottom: theme.spacing.xl }}
+        contentContainerStyle={{ padding: theme.spacing.md, paddingBottom: theme.spacing.xl + 120 }}
       >
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <View style={{ flex: 1 }}>
@@ -639,7 +641,7 @@ export default function ProfileIndexScreen() {
             </Pressable>
           </>
         )}
-      </ScrollView>
+      </KeyboardAwareScrollView>
     </Screen>
   );
 }

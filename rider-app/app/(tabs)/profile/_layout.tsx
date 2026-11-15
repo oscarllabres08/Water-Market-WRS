@@ -7,6 +7,7 @@ export default function ProfileLayout() {
     <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right', animationDuration: 280 }}>
       <Stack.Screen name="index" />
       <Stack.Screen name="customers" options={profileSubpageScreenOptions('Customers list')} />
+      <Stack.Screen name="my-deliveries" options={profileSubpageScreenOptions('Delivery history')} />
       <Stack.Screen name="settings" options={profileSubpageScreenOptions('Account settings')} />
       <Stack.Screen name="help" options={profileSubpageScreenOptions('Help Center')} />
       <Stack.Screen name="notification-settings" options={profileSubpageScreenOptions('Notification settings')} />

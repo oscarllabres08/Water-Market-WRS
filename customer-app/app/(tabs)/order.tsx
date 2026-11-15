@@ -21,6 +21,7 @@ import { supabase } from '../../lib/supabase';
 import { uniqueRealtimeChannelName } from '../../lib/supabaseRealtime';
 import { imageUploadPresets, prepareImageForUpload } from '../../lib/prepareImageForUpload';
 import { readPreparedImageBytes } from '../../lib/readPreparedImageBytes';
+import { KeyboardAwareScrollView } from '../../ui/components/KeyboardAwareScrollView';
 import { Screen } from '../../ui/components/Screen';
 import { Card } from '../../ui/components/Card';
 import { Text } from '../../ui/components/Text';
@@ -979,7 +980,8 @@ export default function OrderScreen() {
       </Modal>
 
       <View style={{ flex: 1 }}>
-        <ScrollView
+        <KeyboardAwareScrollView
+          offset={72}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -993,7 +995,7 @@ export default function OrderScreen() {
           contentContainerStyle={{
             paddingHorizontal: theme.spacing.md,
             paddingTop: theme.spacing.md,
-            paddingBottom: scrollBottomPad,
+            paddingBottom: scrollBottomPad + 120,
           }}
         >
           {step === 'checkout' ? (
@@ -1756,7 +1758,7 @@ export default function OrderScreen() {
               )}
             </>
           ) : null}
-        </ScrollView>
+        </KeyboardAwareScrollView>
 
         {step === 'menu' && cart.length > 0 && !loading && !err ? (
           <View

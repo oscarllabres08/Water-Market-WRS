@@ -1,21 +1,23 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Linking, Pressable, RefreshControl, ScrollView, TextInput, View } from 'react-native';
+import { Linking, Modal, Pressable, RefreshControl, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 
-import { formatOrderDistance, orderDistanceKm } from '../../lib/orderDistance';
 import { supabase } from '../../lib/supabase';
 import { uniqueRealtimeChannelName } from '../../lib/supabaseRealtime';
 import { useAuth } from '../../providers/AuthProvider';
-import { Screen } from '../../ui/components/Screen';
-import { Text } from '../../ui/components/Text';
 import { Button } from '../../ui/components/Button';
+import { Card } from '../../ui/components/Card';
+import { KeyboardAwareScrollView } from '../../ui/components/KeyboardAwareScrollView';
 import { NewOrderBadge } from '../../ui/components/NewOrderBadge';
+import { Screen } from '../../ui/components/Screen';
 import { SellerScreenHeader } from '../../ui/components/SellerScreenHeader';
+import { Text } from '../../ui/components/Text';
+import { formatSourceReference } from '../../lib/sourceReference';
 import { theme } from '../../ui/theme';
 
-type Tab = 'pending' | 'ongoing' | 'delivered';
+type DeliveryFilter = 'for_delivery' | 'delivered';
 
 type Item = { name: string; quantity: number };
 
@@ -35,29 +37,51 @@ type Stop = {
   items: Item[];
   status: 'for_delivery' | 'in_transit' | 'delivered';
   fresh: boolean;
-  /** Orders only — false/null means rider should mark paid after delivery. */
   paymentSettled?: boolean | null;
 };
 
 const STATION = 'Ilang-Ilang Road, Andagao, Kalibo, Aklan';
 
-function deliveryCode(kind: 'order' | 'laundry', id: string) {
-  return `${kind === 'laundry' ? 'LY' : 'WM'}-${id.replace(/-/g, '').slice(0, 6).toUpperCase()}`;
+function deliveryBucket(status: string): Stop['status'] | null {
+  if (status === 'cancelled' || status === 'failed') return null;
+  if (status === 'delivered' || status === 'completed') return 'delivered';
+  if (status === 'on_the_way' || status === 'in_transit' || status === 'in_progress') return 'in_transit';
+  return 'for_delivery';
 }
 
-function statusLabel(status: string) {
-  if (status === 'for_delivery' || status === 'assigned') return 'For delivery';
-  if (status === 'in_transit') return 'In transit';
-  if (status === 'delivered') return 'Delivered';
-  if (status === 'reassigned') return 'Reassigned';
-  if (status === 'cancelled' || status === 'failed') return 'Failed';
-  return status;
+function categoryMeta(category: string) {
+  if (category === 'ice') {
+    return { label: 'Ice Cubes', pillBg: '#E8F4FF', accent: '#0074F0' };
+  }
+  if (category === 'laundry') {
+    return { label: 'Laundry', pillBg: '#F3EEFF', accent: '#7C3AED' };
+  }
+  if (category === 'mixed') {
+    return { label: 'Mixed order', pillBg: '#E8F4FF', accent: '#0074F0' };
+  }
+  return { label: 'Water Refilling', pillBg: '#E8F4FF', accent: '#0074F0' };
+}
+
+function statusBadgeMeta(status: Stop['status']) {
+  if (status === 'in_transit') {
+    return { label: 'In Transit', icon: 'car-outline' as const, bg: '#F3EEFF', color: '#7C3AED' };
+  }
+  if (status === 'delivered') {
+    return { label: 'Delivered', icon: 'checkmark-circle' as const, bg: '#E8F8EF', color: '#16A34A' };
+  }
+  return { label: 'For Delivery', icon: 'time-outline' as const, bg: '#E7F3FF', color: '#0074F0' };
+}
+
+function itemsLine(stop: Stop) {
+  if (!stop.items.length) return '—';
+  return stop.items.map((item) => `${item.quantity} ${item.name}`).join(' · ');
 }
 
 function openMaps(stop: Stop, origin: { lat: number; lng: number } | null) {
-  const destination = stop.latitude != null && stop.longitude != null
-    ? `${stop.latitude},${stop.longitude}`
-    : stop.address.trim();
+  const destination =
+    stop.latitude != null && stop.longitude != null
+      ? `${stop.latitude},${stop.longitude}`
+      : stop.address.trim();
   if (!destination) return;
   const params = new URLSearchParams({
     api: '1',
@@ -68,24 +92,10 @@ function openMaps(stop: Stop, origin: { lat: number; lng: number } | null) {
   void Linking.openURL(`https://www.google.com/maps/dir/?${params.toString()}`);
 }
 
-function listStatus(status: string) {
-  if (status === 'for_delivery' || status === 'assigned') return 'pending';
-  if (status === 'in_transit') return 'on-going';
-  if (status === 'delivered') return 'delivered';
-  return statusLabel(status).toLowerCase();
-}
-
-function deliveryBucket(status: string): Stop['status'] | null {
-  if (status === 'cancelled' || status === 'failed') return null;
-  if (status === 'delivered' || status === 'completed') return 'delivered';
-  if (status === 'on_the_way' || status === 'in_transit' || status === 'in_progress') return 'in_transit';
-  return 'for_delivery';
-}
-
 export default function DeliveryScreen() {
   const router = useRouter();
   const { user, businessId } = useAuth();
-  const [tab, setTab] = useState<Tab>('pending');
+  const [filter, setFilter] = useState<DeliveryFilter>('for_delivery');
   const [query, setQuery] = useState('');
   const [storeCoords, setStoreCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [stops, setStops] = useState<Stop[]>([]);
@@ -93,6 +103,7 @@ export default function DeliveryScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [laundryDetail, setLaundryDetail] = useState<Stop | null>(null);
   const loadRef = useRef<() => Promise<void>>(async () => {});
 
   const load = useCallback(async () => {
@@ -136,7 +147,9 @@ export default function DeliveryScreen() {
       status: string;
     }[];
     const jobByOrder = new Map(jobs.filter((job) => job.order_id).map((job) => [job.order_id as string, job]));
-    const jobByLaundry = new Map(jobs.filter((job) => job.laundry_booking_id).map((job) => [job.laundry_booking_id as string, job]));
+    const jobByLaundry = new Map(
+      jobs.filter((job) => job.laundry_booking_id).map((job) => [job.laundry_booking_id as string, job])
+    );
 
     const orderStops: Stop[] = ((ordersRes.data ?? []) as {
       id: string;
@@ -148,7 +161,13 @@ export default function DeliveryScreen() {
       longitude: number | null;
       status: string;
       payment_settled: boolean | null;
-      order_items: { product_name: string; quantity: number; products: { category?: string | null } | { category?: string | null }[] | null }[] | null;
+      order_items:
+        | {
+            product_name: string;
+            quantity: number;
+            products: { category?: string | null } | { category?: string | null }[] | null;
+          }[]
+        | null;
     }[]).flatMap((order) => {
       const status = deliveryBucket(order.status);
       if (!status) return [];
@@ -161,24 +180,26 @@ export default function DeliveryScreen() {
       const hasOther = categories.some((category) => category !== 'ice');
       const job = jobByOrder.get(order.id);
       const address = `${order.delivery_address ?? ''}${order.landmark ? `, ${order.landmark}` : ''}`.trim();
-      return [{
-        key: `order:${order.id}`,
-        jobId: job?.id ?? null,
-        assignedToMe: job?.rider_id === user.id,
-        sourceKind: 'order' as const,
-        sourceId: order.id,
-        code: deliveryCode('order', order.id),
-        category: hasIce && hasOther ? 'mixed' : hasIce ? 'ice' : 'water',
-        customer: order.customer_name,
-        phone: order.contact_number,
-        address,
-        latitude: order.latitude,
-        longitude: order.longitude,
-        items: items.map((item) => ({ name: item.product_name, quantity: item.quantity })),
-        status,
-        fresh: order.status === 'pending',
-        paymentSettled: order.payment_settled,
-      }];
+      return [
+        {
+          key: `order:${order.id}`,
+          jobId: job?.id ?? null,
+          assignedToMe: job?.rider_id === user.id,
+          sourceKind: 'order' as const,
+          sourceId: order.id,
+          code: formatSourceReference('order', order.id),
+          category: hasIce && hasOther ? 'mixed' : hasIce ? 'ice' : 'water',
+          customer: order.customer_name,
+          phone: order.contact_number,
+          address,
+          latitude: order.latitude,
+          longitude: order.longitude,
+          items: items.map((item) => ({ name: item.product_name, quantity: item.quantity })),
+          status,
+          fresh: order.status === 'pending',
+          paymentSettled: order.payment_settled,
+        },
+      ];
     });
 
     const laundryStops: Stop[] = laundryRes.error
@@ -196,23 +217,28 @@ export default function DeliveryScreen() {
           const status = deliveryBucket(booking.status);
           if (!status) return [];
           const job = jobByLaundry.get(booking.id);
-          return [{
-            key: `laundry:${booking.id}`,
-            jobId: job?.id ?? null,
-            assignedToMe: job?.rider_id === user.id,
-            sourceKind: 'laundry' as const,
-            sourceId: booking.id,
-            code: deliveryCode('laundry', booking.id),
-            category: 'laundry',
-            customer: booking.customer_name,
-            phone: booking.contact_number,
-            address: booking.address ?? '',
-            latitude: booking.latitude,
-            longitude: booking.longitude,
-            items: (booking.laundry_booking_items ?? []).map((item) => ({ name: item.service_name, quantity: item.quantity })),
-            status,
-            fresh: booking.status === 'pending',
-          }];
+          return [
+            {
+              key: `laundry:${booking.id}`,
+              jobId: job?.id ?? null,
+              assignedToMe: job?.rider_id === user.id,
+              sourceKind: 'laundry' as const,
+              sourceId: booking.id,
+              code: formatSourceReference('laundry', booking.id),
+              category: 'laundry',
+              customer: booking.customer_name,
+              phone: booking.contact_number,
+              address: booking.address ?? '',
+              latitude: booking.latitude,
+              longitude: booking.longitude,
+              items: (booking.laundry_booking_items ?? []).map((item) => ({
+                name: item.service_name,
+                quantity: item.quantity,
+              })),
+              status,
+              fresh: booking.status === 'pending',
+            },
+          ];
         });
 
     setStops([...orderStops, ...laundryStops]);
@@ -262,25 +288,18 @@ export default function DeliveryScreen() {
 
   const counts = useMemo(
     () => ({
-      pending: stops.filter((stop) => stop.status === 'for_delivery').length,
-      ongoing: stops.filter((stop) => stop.status === 'in_transit').length,
+      forDelivery: stops.filter((stop) => stop.status === 'for_delivery' || stop.status === 'in_transit').length,
       delivered: stops.filter((stop) => stop.status === 'delivered').length,
     }),
     [stops]
   );
 
   const visible = stops.filter((stop) => {
-    if (tab === 'pending' && stop.status !== 'for_delivery') return false;
-    if (tab === 'ongoing' && stop.status !== 'in_transit') return false;
-    if (tab === 'delivered' && stop.status !== 'delivered') return false;
+    if (filter === 'for_delivery' && stop.status === 'delivered') return false;
+    if (filter === 'delivered' && stop.status !== 'delivered') return false;
     const q = query.trim().toLowerCase();
-    if (!q) return true;
-    return (
-      stop.customer.toLowerCase().includes(q) ||
-      stop.code.toLowerCase().includes(q) ||
-      stop.sourceId.toLowerCase().includes(q) ||
-      stop.address.toLowerCase().includes(q)
-    );
+    if (q && !stop.customer.toLowerCase().includes(q)) return false;
+    return true;
   });
 
   async function updateDelivery(stop: Stop, action: 'start' | 'deliver') {
@@ -296,12 +315,18 @@ export default function DeliveryScreen() {
       await load();
       return;
     }
-    const next = stop.sourceKind === 'laundry'
-      ? action === 'start' ? 'in_progress' : 'completed'
-      : action === 'start' ? 'on_the_way' : 'delivered';
-    const { error: err } = stop.sourceKind === 'laundry'
-      ? await supabase.from('laundry_bookings').update({ status: next }).eq('id', stop.sourceId)
-      : await supabase.from('orders').update({ status: next }).eq('id', stop.sourceId);
+    const next =
+      stop.sourceKind === 'laundry'
+        ? action === 'start'
+          ? 'in_progress'
+          : 'completed'
+        : action === 'start'
+          ? 'on_the_way'
+          : 'delivered';
+    const { error: err } =
+      stop.sourceKind === 'laundry'
+        ? await supabase.from('laundry_bookings').update({ status: next }).eq('id', stop.sourceId)
+        : await supabase.from('orders').update({ status: next }).eq('id', stop.sourceId);
     setBusyId(null);
     if (err) {
       setError(err.message);
@@ -310,10 +335,21 @@ export default function DeliveryScreen() {
     await load();
   }
 
+  function openDetails(stop: Stop) {
+    if (stop.sourceKind === 'order') {
+      router.push(`/order/${stop.sourceId}`);
+      return;
+    }
+    setLaundryDetail(stop);
+  }
+
+  const modalStop = laundryDetail;
+
   return (
     <Screen>
-      <ScrollView
-        contentContainerStyle={{ paddingBottom: 28, gap: 12 }}
+      <KeyboardAwareScrollView
+        offset={72}
+        contentContainerStyle={{ paddingBottom: 120, gap: 8 }}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -324,28 +360,12 @@ export default function DeliveryScreen() {
           />
         }
       >
-        <SellerScreenHeader title="WaterMarket" subtitle="Delivery" />
-        <Text variant="muted" weight="semibold" style={{ marginTop: -6, lineHeight: 18 }}>
-          Track delivered orders and view customer details, order history, and payment status.
-        </Text>
-        {error ? <Text weight="bold" style={{ color: theme.colors.danger }}>{error}</Text> : null}
-
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'stretch',
-            gap: 4,
-            padding: 4,
-            borderRadius: 14,
-            backgroundColor: '#E5F3FC',
-            borderWidth: 1,
-            borderColor: 'rgba(0,114,240,0.10)',
-          }}
-        >
-          <FilterTab icon="time-outline" label="Pending" count={counts.pending} active={tab === 'pending'} onPress={() => setTab('pending')} />
-          <FilterTab icon="car-outline" label="On-going" count={counts.ongoing} active={tab === 'ongoing'} onPress={() => setTab('ongoing')} />
-          <FilterTab icon="checkmark" label="Delivered" count={counts.delivered} active={tab === 'delivered'} onPress={() => setTab('delivered')} />
-        </View>
+        <SellerScreenHeader title="My Deliveries" subtitle="Search by customer and filter active or completed runs." />
+        {error ? (
+          <Text weight="bold" style={{ color: theme.colors.danger }}>
+            {error}
+          </Text>
+        ) : null}
 
         <View
           style={{
@@ -364,193 +384,264 @@ export default function DeliveryScreen() {
           <TextInput
             value={query}
             onChangeText={setQuery}
-            placeholder="Search customer name or order ID..."
+            placeholder="Search customer name..."
             placeholderTextColor="#8AA0BB"
             style={{ flex: 1, color: theme.colors.text, fontFamily: theme.font.semibold, fontSize: 14 }}
+          />
+        </View>
+
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'stretch',
+            gap: 4,
+            padding: 4,
+            borderRadius: 14,
+            backgroundColor: '#E5F3FC',
+            borderWidth: 1,
+            borderColor: 'rgba(0,114,240,0.10)',
+          }}
+        >
+          <DeliveryFilterChip
+            label={`For delivery (${counts.forDelivery})`}
+            active={filter === 'for_delivery'}
+            onPress={() => setFilter('for_delivery')}
+          />
+          <DeliveryFilterChip
+            label={`Delivered (${counts.delivered})`}
+            active={filter === 'delivered'}
+            onPress={() => setFilter('delivered')}
           />
         </View>
 
         {loading ? <Text variant="muted">Loading your deliveries…</Text> : null}
         {!loading && visible.length === 0 ? (
           <Text variant="muted" weight="semibold">
-            {query.trim() ? 'No matching deliveries.' : 'No deliveries in this list.'}
+            {query.trim() ? 'No matching customer.' : 'No deliveries in this list.'}
           </Text>
         ) : null}
 
-        {visible.map((stop) => {
-          const km = orderDistanceKm(
-            { latitude: stop.latitude, longitude: stop.longitude },
-            storeCoords
-          );
-          const distance = formatOrderDistance(km);
-          return (
-            <DeliveryCard
-              key={stop.key}
-              stop={stop}
-              distance={distance ? `~ ${distance}` : null}
-              busy={busyId === stop.key}
-              onOpen={stop.sourceKind === 'order' ? () => router.push(`/order/${stop.sourceId}`) : undefined}
-              onMaps={() => openMaps(stop, storeCoords)}
-              onStart={() => void updateDelivery(stop, 'start')}
-              onDeliver={() => void updateDelivery(stop, 'deliver')}
-            />
-          );
-        })}
-      </ScrollView>
+        {visible.map((stop) => (
+          <DeliveryCard key={stop.key} stop={stop} onViewDetails={() => openDetails(stop)} />
+        ))}
+      </KeyboardAwareScrollView>
+
+      <Modal visible={!!modalStop} transparent animationType="fade" onRequestClose={() => setLaundryDetail(null)}>
+        <Pressable
+          onPress={() => setLaundryDetail(null)}
+          style={{ flex: 1, backgroundColor: 'rgba(11,27,58,0.45)', justifyContent: 'center', padding: theme.spacing.md }}
+        >
+          <Pressable onPress={() => {}} style={{ width: '100%', maxWidth: 420, alignSelf: 'center' }}>
+            {modalStop ? (
+              <Card style={{ gap: 12 }}>
+                <Text variant="h2" weight="extrabold">
+                  Laundry delivery
+                </Text>
+                <Text weight="extrabold" style={{ fontSize: 17 }}>
+                  {modalStop.customer}
+                </Text>
+                <Text weight="bold" style={{ color: theme.colors.primary }}>
+                  {modalStop.code}
+                </Text>
+                <Text variant="muted">{modalStop.address || 'No address'}</Text>
+                <Text variant="muted">{itemsLine(modalStop)}</Text>
+                <Pressable
+                  onPress={() => openMaps(modalStop, storeCoords)}
+                  style={{
+                    height: 44,
+                    borderRadius: 12,
+                    borderWidth: 1.5,
+                    borderColor: theme.colors.primary,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexDirection: 'row',
+                    gap: 8,
+                  }}
+                >
+                  <Ionicons name="map-outline" size={18} color={theme.colors.primary} />
+                  <Text weight="extrabold" style={{ color: theme.colors.primary }}>
+                    Open in Maps
+                  </Text>
+                </Pressable>
+                {modalStop.status === 'for_delivery' ? (
+                  <Button
+                    title="Start delivery"
+                    disabled={busyId === modalStop.key}
+                    onPress={() => void updateDelivery(modalStop, 'start').then(() => setLaundryDetail(null))}
+                  />
+                ) : null}
+                {modalStop.status === 'in_transit' ? (
+                  <Button
+                    title="Mark as delivered"
+                    disabled={busyId === modalStop.key}
+                    onPress={() => void updateDelivery(modalStop, 'deliver').then(() => setLaundryDetail(null))}
+                  />
+                ) : null}
+                <Pressable onPress={() => setLaundryDetail(null)} style={{ alignSelf: 'flex-end' }}>
+                  <Text weight="extrabold" style={{ color: theme.colors.primary }}>
+                    Close
+                  </Text>
+                </Pressable>
+              </Card>
+            ) : null}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </Screen>
   );
 }
 
-function FilterTab({
-  icon,
-  label,
-  count,
-  active,
-  onPress,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  label: string;
-  count: number;
-  active: boolean;
-  onPress: () => void;
-}) {
+function DeliveryFilterChip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
   return (
     <Pressable
       onPress={onPress}
       style={{
         flex: 1,
-        minWidth: 0,
         paddingVertical: 10,
-        paddingHorizontal: 4,
+        paddingHorizontal: 8,
         borderRadius: 11,
-        flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 4,
         backgroundColor: active ? 'rgba(0,114,240,0.18)' : 'transparent',
         borderWidth: active ? 1 : 0,
         borderColor: active ? 'rgba(0,114,240,0.28)' : 'transparent',
       }}
     >
-      <Ionicons name={icon} size={15} color={active ? theme.colors.primary : theme.colors.muted} />
       <Text
         weight="semibold"
-        numberOfLines={1}
-        adjustsFontSizeToFit
-        minimumFontScale={0.85}
-        style={{ color: active ? theme.colors.primary : theme.colors.muted, fontSize: 12 }}
+        numberOfLines={2}
+        style={{
+          textAlign: 'center',
+          fontSize: 12,
+          color: active ? theme.colors.primary : theme.colors.muted,
+        }}
       >
-        {label} ({count})
+        {label}
       </Text>
     </Pressable>
   );
 }
 
-function DeliveryCard({
-  stop,
-  distance,
-  busy,
-  onOpen,
-  onMaps,
-  onStart,
-  onDeliver,
-}: {
-  stop: Stop;
-  distance: string | null;
-  busy: boolean;
-  onOpen?: () => void;
-  onMaps: () => void;
-  onStart: () => void;
-  onDeliver: () => void;
-}) {
-  const pending = stop.status === 'for_delivery';
-  const initial = (stop.customer.trim()[0] || 'C').toUpperCase();
-  const place = stop.address.trim() || (stop.latitude != null ? `${stop.latitude.toFixed(5)}, ${stop.longitude?.toFixed(5)}` : 'No address');
-  const showUnpaid =
-    stop.sourceKind === 'order' && stop.status === 'delivered' && stop.paymentSettled !== true;
+function DeliveryCard({ stop, onViewDetails }: { stop: Stop; onViewDetails: () => void }) {
+  const meta = categoryMeta(stop.category);
+  const badge = statusBadgeMeta(stop.status);
+  const place = stop.address.trim() || 'No address';
+  const showUnpaid = stop.sourceKind === 'order' && stop.status === 'delivered' && stop.paymentSettled !== true;
+
+  const cardBorder = stop.fresh
+    ? { borderWidth: 2, borderColor: 'rgba(229, 72, 77, 0.65)' }
+    : stop.status === 'delivered'
+      ? { borderWidth: 1.5, borderColor: 'rgba(22, 163, 74, 0.55)' }
+      : { borderWidth: 1, borderColor: theme.colors.border };
+
   return (
     <View
       style={{
-        borderRadius: 18,
-        borderWidth: pending ? 1.5 : 1,
-        borderColor: pending ? 'rgba(229, 72, 77, 0.45)' : theme.colors.border,
-        backgroundColor: '#FFFFFF',
-        padding: 14,
-        gap: 12,
+        borderRadius: 14,
+        ...cardBorder,
+        backgroundColor: stop.status === 'delivered' && !stop.fresh ? '#F8FDF9' : '#FFFFFF',
+        paddingHorizontal: 11,
+        paddingVertical: 10,
+        gap: 6,
+        shadowColor: '#0B1B3A',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.04,
+        shadowRadius: 6,
+        elevation: 2,
       }}
     >
-      <Pressable onPress={onOpen} disabled={!onOpen} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+      {stop.fresh ? (
+        <View style={{ position: 'absolute', top: 8, right: 8, zIndex: 2 }}>
+          <NewOrderBadge />
+        </View>
+      ) : null}
+
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingRight: stop.fresh ? 44 : 0 }}>
         <View
           style={{
-            width: 42,
-            height: 42,
-            borderRadius: 21,
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: '#E7F3FF',
+            paddingVertical: 2,
+            paddingHorizontal: 7,
+            borderRadius: 999,
+            backgroundColor: meta.pillBg,
           }}
         >
-          <Text weight="extrabold" style={{ color: '#0B3A96', fontSize: 16 }}>{initial}</Text>
-        </View>
-        <View style={{ flex: 1, paddingRight: stop.fresh ? 52 : 8 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-            <Text weight="extrabold" style={{ fontSize: 16 }}>{stop.customer}</Text>
-            {showUnpaid ? (
-              <View
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 4,
-                  paddingVertical: 3,
-                  paddingHorizontal: 8,
-                  borderRadius: 999,
-                  borderWidth: 1,
-                  borderColor: 'rgba(239,68,68,0.4)',
-                  backgroundColor: 'rgba(239,68,68,0.12)',
-                }}
-              >
-                <Ionicons name="alert-circle" size={12} color={theme.colors.danger} />
-                <Text weight="extrabold" style={{ fontSize: 11, color: theme.colors.danger }}>
-                  Unpaid
-                </Text>
-              </View>
-            ) : null}
-          </View>
-          <Text variant="muted" numberOfLines={2} style={{ marginTop: 2, fontSize: 13 }}>{place}</Text>
-          <Text weight="bold" style={{ marginTop: 4, color: '#0074F0', fontSize: 13 }}>
-            {listStatus(stop.status)}{distance ? `  ·  ${distance}` : ''}
+          <Text weight="bold" style={{ fontSize: 10, color: meta.accent }}>
+            {meta.label}
           </Text>
-          {showUnpaid ? (
-            <Text variant="muted" weight="semibold" style={{ marginTop: 4, fontSize: 12, color: theme.colors.danger }}>
-              Tap order → Mark paid
-            </Text>
-          ) : null}
         </View>
-        {stop.fresh ? (
-          <View style={{ position: 'absolute', top: 0, right: 18 }}>
-            <NewOrderBadge />
-          </View>
-        ) : null}
-        <Ionicons name="chevron-forward" size={18} color="#8AA0BB" />
-      </Pressable>
-      <Pressable
-        onPress={onMaps}
-        style={{
-          height: 44,
-          borderRadius: 12,
-          borderWidth: 1.5,
-          borderColor: '#0074F0',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexDirection: 'row',
-          gap: 8,
-        }}
-      >
-        <Ionicons name="map-outline" size={18} color="#0074F0" />
-        <Text weight="extrabold" style={{ color: '#0074F0' }}>Open in Maps</Text>
-      </Pressable>
-      {pending ? <Button title="Start delivery" disabled={busy} onPress={onStart} /> : null}
-      {stop.status === 'in_transit' ? <Button title="Mark as delivered" disabled={busy} onPress={onDeliver} /> : null}
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 3,
+            marginLeft: 'auto',
+            paddingVertical: 2,
+            paddingHorizontal: 7,
+            borderRadius: 999,
+            backgroundColor: badge.bg,
+          }}
+        >
+          <Ionicons name={badge.icon} size={11} color={badge.color} />
+          <Text weight="extrabold" style={{ fontSize: 9, color: badge.color }}>
+            {badge.label}
+          </Text>
+        </View>
+      </View>
+
+      <Text weight="extrabold" style={{ fontSize: 15, lineHeight: 19 }}>
+        {stop.code}
+      </Text>
+
+      <View style={{ gap: 3 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+          <Ionicons name="person-outline" size={12} color={theme.colors.muted} />
+          <Text weight="semibold" numberOfLines={1} style={{ flex: 1, fontSize: 12 }}>
+            {stop.customer}
+          </Text>
+        </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+          <Ionicons name="location-outline" size={12} color={theme.colors.muted} />
+          <Text variant="muted" numberOfLines={1} style={{ flex: 1, fontSize: 11 }}>
+            {place}
+          </Text>
+        </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+          <Ionicons name="cube-outline" size={12} color={theme.colors.muted} />
+          <Text variant="muted" numberOfLines={1} style={{ flex: 1, fontSize: 11 }}>
+            {itemsLine(stop)}
+          </Text>
+        </View>
+      </View>
+
+      {showUnpaid ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+          <Ionicons name="alert-circle" size={11} color={theme.colors.danger} />
+          <Text weight="bold" style={{ fontSize: 10, color: theme.colors.danger, flex: 1 }}>
+            Unpaid — mark paid in order details
+          </Text>
+        </View>
+      ) : null}
+
+      <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 2 }}>
+        <Pressable
+          onPress={onViewDetails}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 3,
+            paddingVertical: 5,
+            paddingHorizontal: 10,
+            borderRadius: 10,
+            borderWidth: 1,
+            borderColor: theme.colors.primary,
+          }}
+        >
+          <Text weight="extrabold" style={{ color: theme.colors.primary, fontSize: 11 }}>
+            View Details
+          </Text>
+          <Ionicons name="chevron-forward" size={14} color={theme.colors.primary} />
+        </Pressable>
+      </View>
     </View>
   );
 }

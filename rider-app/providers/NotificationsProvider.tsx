@@ -169,7 +169,7 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
               pendingUserId: (rowData.pending_user_id as string | undefined) ?? (rowData.pendingUserId as string | undefined),
             } as Record<string, unknown>;
 
-            if (orderId && (kind === 'new_order' || kind === 'order_activity')) {
+            if (orderId && (kind === 'new_order' || kind === 'order_activity' || kind === 'delivery_assigned')) {
               const now = Date.now();
               const prev = lastOrderAlertRef.current;
               if (prev && prev.orderId === orderId && prev.kind === kind && now - prev.at < 60_000) {

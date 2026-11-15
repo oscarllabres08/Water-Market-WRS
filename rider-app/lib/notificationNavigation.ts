@@ -11,6 +11,15 @@ export function navigateFromSellerNotification(router: Router, n: NotifPayload) 
   const orderId = (n.order_id ?? n.data?.orderId) as string | undefined;
   const kind = (n.kind ?? n.data?.kind ?? n.data?.type) as string | undefined;
 
+  if (kind === 'delivery_assigned') {
+    if (orderId) {
+      router.push(`/order/${orderId}`);
+      return;
+    }
+    router.push('/(tabs)/profile/my-deliveries' as never);
+    return;
+  }
+
   if (kind === 'seller_registration_pending') {
     Alert.alert(
       'Staff registration',

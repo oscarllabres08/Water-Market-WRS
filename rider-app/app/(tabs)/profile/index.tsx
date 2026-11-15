@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ComponentProps } from 'react';
-import { ActivityIndicator, Image, Pressable, ScrollView, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -11,6 +11,7 @@ import { imageUploadPresets, prepareImageForUpload } from '../../../lib/prepareI
 import { readPreparedImageBytes } from '../../../lib/readPreparedImageBytes';
 import { supabase } from '../../../lib/supabase';
 import { useAuth } from '../../../providers/AuthProvider';
+import { KeyboardAwareScrollView } from '../../../ui/components/KeyboardAwareScrollView';
 import { Screen } from '../../../ui/components/Screen';
 import { Card } from '../../../ui/components/Card';
 import { GradientCard } from '../../../ui/components/GradientCard';
@@ -165,7 +166,7 @@ export default function ProfileHomeScreen() {
           }
         }}
       />
-      <ScrollView contentContainerStyle={{ paddingBottom: theme.spacing.xl }}>
+      <KeyboardAwareScrollView contentContainerStyle={{ paddingBottom: theme.spacing.xl + 24 }}>
         <SellerScreenHeader subtitle="Profile" />
 
         {loading ? <SellerProfileSkeleton /> : null}
@@ -261,6 +262,12 @@ export default function ProfileHomeScreen() {
 
             <Card>
               <MenuRow
+                title="Delivery history"
+                icon="checkbox-outline"
+                onPress={() => router.push('/(tabs)/profile/my-deliveries' as never)}
+              />
+              <Divider />
+              <MenuRow
                 title="Customers list"
                 icon="people-outline"
                 onPress={() => router.push('/(tabs)/profile/customers')}
@@ -287,7 +294,7 @@ export default function ProfileHomeScreen() {
             </Card>
           </Animated.View>
         ) : null}
-      </ScrollView>
+      </KeyboardAwareScrollView>
     </Screen>
   );
 }

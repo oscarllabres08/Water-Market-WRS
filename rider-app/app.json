@@ -5,7 +5,7 @@
     "owner": "llabresoscar08",
     "version": "1.0.1",
     "orientation": "portrait",
-    "icon": "./assets/logo.png",
+    "icon": "./assets/images/icon.png",
     "scheme": "watermarketrider",
     "userInterfaceStyle": "automatic",
     "androidStatusBar": {
@@ -36,8 +36,8 @@
       "softwareKeyboardLayoutMode": "resize",
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
-        "backgroundColor": "#FFFFFF",
-        "foregroundImage": "./assets/logo.png"
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "backgroundImage": "./assets/images/android-icon-background.png"
       },
       "package": "com.watermarket.rider",
       "versionCode": 2,

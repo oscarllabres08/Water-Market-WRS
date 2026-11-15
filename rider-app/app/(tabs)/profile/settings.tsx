@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { ScrollView, View } from 'react-native';
+import { View } from 'react-native';
 
 import { supabase } from '../../../lib/supabase';
 import { useAuth } from '../../../providers/AuthProvider';
+import { KeyboardAwareScrollView } from '../../../ui/components/KeyboardAwareScrollView';
 import { Screen } from '../../../ui/components/Screen';
 import { Card } from '../../../ui/components/Card';
 import { Text } from '../../../ui/components/Text';
@@ -60,7 +61,7 @@ export default function AccountSettingsScreen() {
 
   return (
     <Screen safeAreaEdges={['left', 'right']}>
-      <ScrollView contentContainerStyle={{ paddingBottom: theme.spacing.xl }}>
+      <KeyboardAwareScrollView contentContainerStyle={{ paddingBottom: theme.spacing.xl + 120 }}>
         <Text variant="muted" weight="semibold" style={{ marginTop: 4 }}>
           Change password to keep your account secure.
         </Text>
@@ -86,7 +87,7 @@ export default function AccountSettingsScreen() {
             </View>
           </Card>
         </View>
-      </ScrollView>
+      </KeyboardAwareScrollView>
     </Screen>
   );
 }
