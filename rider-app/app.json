@@ -3,7 +3,7 @@
     "name": "Rider Watermarket",
     "slug": "watermarket-rider",
     "owner": "llabresoscar08",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/app-icon.png",
     "scheme": "watermarketrider",
@@ -16,7 +16,7 @@
     "splash": {
       "image": "./assets/logo.png",
       "resizeMode": "contain",
-      "backgroundColor": "#FFFFFF"
+      "backgroundColor": "#90CFF8"
     },
     "ios": {
       "supportsTablet": true,
@@ -37,10 +37,10 @@
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#D7F1FF"
+        "backgroundColor": "#90CFF8"
       },
       "package": "com.watermarket.rider",
-      "versionCode": 4,
+      "versionCode": 5,
       "predictiveBackGestureEnabled": false,
       "permissions": [
         "android.permission.ACCESS_COARSE_LOCATION",
