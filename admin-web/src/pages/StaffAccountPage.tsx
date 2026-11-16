@@ -241,7 +241,7 @@ export function StaffAccountPage() {
                           Reject
                         </button>
                       </>
-                    ) : isOwner || accountKind(row) === 'rider' ? null : (
+                    ) : isOwner ? null : (
                       <button
                         type="button"
                         className="btn btn-danger btn-sm"
@@ -261,12 +261,21 @@ export function StaffAccountPage() {
 
       <ConfirmModal
         open={removeTarget != null}
-        title="Remove admin account?"
+        title={
+          removeTarget && accountKind(removeTarget) === 'rider' ? 'Remove rider account?' : 'Remove admin account?'
+        }
         message={
-          <>
-            Remove <strong>{removeTarget?.display_name ?? removeTarget?.email ?? 'this account'}</strong>? They will
-            lose access to WRS Management.
-          </>
+          removeTarget && accountKind(removeTarget) === 'rider' ? (
+            <>
+              Remove rider <strong>{removeTarget.display_name ?? removeTarget.email ?? 'this account'}</strong>? They
+              will lose access to the Rider app and cannot sign in until registered again.
+            </>
+          ) : (
+            <>
+              Remove admin <strong>{removeTarget?.display_name ?? removeTarget?.email ?? 'this account'}</strong>? They
+              will lose access to WRS Management.
+            </>
+          )
         }
         confirmLabel="Yes, remove"
         variant="danger"
