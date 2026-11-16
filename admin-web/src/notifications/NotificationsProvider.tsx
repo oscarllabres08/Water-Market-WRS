@@ -59,10 +59,12 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       setUnreadCount(0);
       return;
     }
+    const userId = user?.id;
+    if (!userId) return;
     const { count, error } = await supabase
       .from('notifications')
       .select('*', { count: 'exact', head: true })
-      .eq('recipient_id', user.id)
+      .eq('recipient_id', userId)
       .is('read_at', null);
     if (!error && typeof count === 'number') {
       setUnreadCount(count);
@@ -71,7 +73,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     const { data } = await supabase
       .from('notifications')
       .select('id')
-      .eq('recipient_id', user.id)
+      .eq('recipient_id', userId)
       .is('read_at', null)
       .limit(5000);
     setUnreadCount((data ?? []).length);
@@ -93,10 +95,15 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       return;
     }
     setPrefsLoading(true);
+    const userId = user?.id;
+    if (!userId) {
+      setPrefsLoading(false);
+      return;
+    }
     const { data } = await supabase
       .from('profiles')
       .select('notifications_enabled,notification_sound_enabled')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .maybeSingle();
     const row = data as { notifications_enabled?: boolean; notification_sound_enabled?: boolean } | null;
     const next = {

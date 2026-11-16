@@ -41,7 +41,7 @@ function guardRiderApk(
   const host = req.headers.host || 'localhost';
   const proto = host.startsWith('localhost') || host.startsWith('127.') ? 'http' : 'https';
   const requestUrl = `${proto}://${host}${req.url}`;
-  void riderTicketValid(riderTicketFrom(requestUrl, req.headers.cookie)).then((allowed) => {
+  void riderTicketValid(riderTicketFrom(requestUrl, req.headers.cookie)).then((allowed: boolean) => {
     if (!allowed) {
       res.statusCode = 302;
       res.setHeader('Location', '/water-refilling');
