@@ -837,6 +837,62 @@ function SocialGlyph({ name }: { name: 'facebook' | 'messenger' | 'tiktok' | 'yo
   return <svg {...common}><path fill="currentColor" d="M21.5 7.2a2.5 2.5 0 00-1.8-1.8C18.2 5 12 5 12 5s-6.2 0-7.7.4A2.5 2.5 0 002.5 7.2 26 26 0 002 12a26 26 0 00.5 4.8 2.5 2.5 0 001.8 1.8C5.8 19 12 19 12 19s6.2 0 7.7-.4a2.5 2.5 0 001.8-1.8A26 26 0 0022 12a26 26 0 00-.5-4.8zM10 15.5v-7l6 3.5-6 3.5z" /></svg>;
 }
 
+function ApkDownloadButton({
+  href,
+  filename,
+  className,
+  label,
+}: {
+  href: string;
+  filename: string;
+  className: string;
+  label: string;
+}) {
+  const [loading, setLoading] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(
+    () => () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    },
+  []);
+
+  function startDownload() {
+    if (loading) return;
+    setLoading(true);
+    const link = document.createElement('a');
+    link.href = href;
+    link.download = filename;
+    link.rel = 'noopener';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => setLoading(false), 15_000);
+  }
+
+  return (
+    <button
+      type="button"
+      className={`${className}${loading ? ' is-loading' : ''}`}
+      disabled={loading}
+      aria-busy={loading}
+      onClick={startDownload}
+    >
+      {loading ? (
+        <>
+          <span className="wm-download-spinner" aria-hidden />
+          Downloading…
+        </>
+      ) : (
+        <>
+          {label} <span aria-hidden>↓</span>
+        </>
+      )}
+    </button>
+  );
+}
+
 export function WaterRefillingPage() {
   const [pinOpen, setPinOpen] = useState(false);
   const [pin, setPin] = useState('');
@@ -912,15 +968,12 @@ export function WaterRefillingPage() {
                   <Icon name="check" /> GCash / Maya payment options
                 </li>
               </ul>
-              <a
+              <ApkDownloadButton
                 className="wm-btn wm-download-btn"
                 href={customerApkDownloadUrl()}
-                download="watermarket-customer.apk"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Download APK <span aria-hidden>↓</span>
-              </a>
+                filename="watermarket-customer.apk"
+                label="Download APK"
+              />
               <span className="wm-download-foot">Android · Install from this page</span>
             </div>
           </article>
@@ -953,13 +1006,12 @@ export function WaterRefillingPage() {
                 </li>
               </ul>
               {downloadTicket ? (
-                <a
+                <ApkDownloadButton
                   className="wm-btn wm-btn-navy wm-download-btn"
                   href={riderApkDownloadUrl(downloadTicket)}
-                  download="watermarket-rider.apk"
-                >
-                  Download APK <span aria-hidden>↓</span>
-                </a>
+                  filename="watermarket-rider.apk"
+                  label="Download APK"
+                />
               ) : (
                 <button type="button" className="wm-btn wm-btn-navy wm-download-btn" onClick={() => setPinOpen(true)}>
                   Enter PIN to download <span aria-hidden>↓</span>

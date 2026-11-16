@@ -1288,6 +1288,34 @@
   justify-content: center;
 }
 
+.wm-download-btn.is-loading {
+  cursor: wait;
+  opacity: 0.95;
+}
+
+.wm-download-spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  margin-right: 8px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: wm-download-spin 0.65s linear infinite;
+  vertical-align: -3px;
+}
+
+.wm-download-btn:not(.wm-btn-navy) .wm-download-spinner {
+  border-color: rgba(11, 58, 150, 0.22);
+  border-top-color: var(--wm-blue, #0b3a96);
+}
+
+@keyframes wm-download-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .wm-download-foot {
   display: block;
   text-align: center;
