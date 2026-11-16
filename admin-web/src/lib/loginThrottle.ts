@@ -1,5 +1,5 @@
 const MAX_FAILS = 5;
-const LOCK_MS = 15 * 60 * 1000;
+const LOCK_MS = 5 * 60 * 1000;
 const KEY = 'wm-portal-login-guard';
 
 type Guard = { fails: number; until: number };

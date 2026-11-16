@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "WaterMarket Customer",
+    "name": "Watermarket",
     "slug": "watermarket-customer",
     "owner": "llabresoscar08",
     "version": "1.0.1",
     "orientation": "portrait",
-    "icon": "./assets/adaptive-icon.png",
+    "icon": "./assets/app-icon.png",
     "scheme": "watermarketcustomer",
     "userInterfaceStyle": "automatic",
     "androidStatusBar": {
@@ -28,10 +28,10 @@
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#E8F4FC"
+        "backgroundColor": "#D7F1FF"
       },
       "package": "com.watermarket.customer",
-      "versionCode": 2,
+      "versionCode": 4,
       "predictiveBackGestureEnabled": false,
       "permissions": [
         "android.permission.ACCESS_COARSE_LOCATION",

@@ -79,7 +79,7 @@ const CONTENT_SECURITY_POLICY = [
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com data:",
   "img-src 'self' data: blob: https:",
-  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://fonts.googleapis.com https://fonts.gstatic.com https://cdn.jsdelivr.net",
+  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://fonts.googleapis.com https://fonts.gstatic.com https://cdn.jsdelivr.net https://nominatim.openstreetmap.org https://api.bigdatacloud.net",
   "frame-src https://maps.google.com https://www.google.com",
   "worker-src 'self' blob:",
 ].join('; ');
@@ -92,7 +92,7 @@ function applySecurityHeaders(headers, pathname) {
   headers.set('X-Content-Type-Options', 'nosniff');
   headers.set('X-Frame-Options', 'DENY');
   headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
-  headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=(self)');
   headers.set('X-Permitted-Cross-Domain-Policies', 'none');
   headers.set('Content-Security-Policy', CONTENT_SECURITY_POLICY);
   if (PRIVATE_PATH.test(pathname)) {

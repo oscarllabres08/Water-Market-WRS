@@ -1013,9 +1013,10 @@ function readPosition(options: PositionOptions): Promise<GeolocationPosition> {
 }
 
 function locationError(err: unknown, fallback: string) {
-  if (typeof err === 'object' && err && 'code' in err && (err as { code: number }).code === 1) {
-    return 'Allow location access so we can fill your address.';
-  }
+  const code = typeof err === 'object' && err && 'code' in err ? (err as { code: number }).code : 0;
+  if (code === 1) return 'Allow location access so we can fill your address.';
+  if (code === 2) return 'Location is unavailable. Turn on GPS or location services, then try again.';
+  if (code === 3) return 'Location timed out. Try again in an open area.';
   return fallback;
 }
 
@@ -1063,15 +1064,18 @@ async function reverseAddress(latitude: number, longitude: number): Promise<stri
 }
 
 async function readCurrentPlace(): Promise<CurrentPin> {
+  if (!window.isSecureContext) {
+    throw new Error('Location only works on a secure connection. Open the site with https.');
+  }
   if (!navigator.geolocation) throw new Error('This browser cannot read your location.');
   let position: GeolocationPosition;
   try {
-    position = await readPosition({ enableHighAccuracy: true, timeout: 12000, maximumAge: 15000 });
+    position = await readPosition({ enableHighAccuracy: false, timeout: 10000, maximumAge: 0 });
   } catch (err) {
-    const denied = locationError(err, '');
-    if (denied) throw new Error(denied);
+    const code = typeof err === 'object' && err && 'code' in err ? (err as { code: number }).code : 0;
+    if (code === 1) throw new Error(locationError(err, 'Allow location access so we can fill your address.'));
     try {
-      position = await readPosition({ enableHighAccuracy: false, timeout: 15000, maximumAge: 60000 });
+      position = await readPosition({ enableHighAccuracy: true, timeout: 20000, maximumAge: 0 });
     } catch (retry) {
       throw new Error(locationError(retry, 'Could not get your current location.'));
     }
@@ -1309,7 +1313,9 @@ export function IceCubesPage() {
               <button className="wm-loc" type="button" onClick={useCurrentLocation} disabled={locating}>
                 {locating ? 'Finding your location…' : coords ? 'Update current location' : 'Use current location'}
               </button>
-              {coords ? <p className="wm-loc-note">Address filled from your current location.</p> : null}
+              {locating ? <p className="wm-loc-note">Finding your location…</p> : null}
+              {error ? <p className="wm-error">{error}</p> : null}
+              {coords && !error ? <p className="wm-loc-note">Address filled from your current location.</p> : null}
               <div className="wm-ice-summary" aria-live="polite">
                 <h3>Order summary</h3>
                 {lines.length === 0 ? (
@@ -1342,7 +1348,6 @@ export function IceCubesPage() {
                   <strong>{money(orderTotal)}</strong>
                 </div>
               </div>
-              {error && products.length > 0 ? <p className="wm-error">{error}</p> : null}
               <button className="wm-btn wm-btn-block" type="submit" disabled={busy || chosen.length === 0}>
                 <Icon name="truck" /> {busy ? 'Sending…' : 'Place order'}
               </button>
@@ -1539,7 +1544,9 @@ export function LaundryPublicPage() {
               <button className="wm-loc" type="button" onClick={useCurrentLocation} disabled={locating}>
                 {locating ? 'Finding your location…' : coords ? 'Update current location' : 'Use current location'}
               </button>
-              {coords ? <p className="wm-loc-note">Address filled from your current location.</p> : null}
+              {locating ? <p className="wm-loc-note">Finding your location…</p> : null}
+              {error ? <p className="wm-error">{error}</p> : null}
+              {coords && !error ? <p className="wm-loc-note">Address filled from your current location.</p> : null}
               <label>
                 Full Name
                 <input value={name} onChange={(event) => setName(event.target.value)} placeholder="Juan Dela Cruz" required />
@@ -1567,7 +1574,6 @@ export function LaundryPublicPage() {
                 </div>
                 <span>({selected ? selected.unit_label.replace(/^per\s+/i, '') : 'kg / pc'})</span>
               </div>
-              {error ? <p className="wm-error">{error}</p> : null}
               <button className="wm-btn wm-btn-block" type="submit" disabled={busy || services.length === 0}>
                 <Icon name="calendar" /> {busy ? 'Sending…' : 'Confirm Booking'}
               </button>
