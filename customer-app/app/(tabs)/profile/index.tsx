@@ -1,8 +1,9 @@
 import type { ComponentProps } from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, RefreshControl, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { readCurrentAddress } from '../../../lib/currentAddress';
 import { useAuth } from '../../../providers/AuthProvider';
@@ -64,6 +65,7 @@ export default function ProfileIndexScreen() {
   const [avatarStamp, setAvatarStamp] = useState(0);
   const [loggingOut, setLoggingOut] = useState(false);
   const [logoutModalOpen, setLogoutModalOpen] = useState(false);
+  const loadedOnce = useRef(false);
 
   async function load() {
     if (authLoading) return;
@@ -71,8 +73,7 @@ export default function ProfileIndexScreen() {
     const userId = user.id;
 
     setErr(null);
-    setSavedMsg(null);
-    setLoading(true);
+    if (!loadedOnce.current) setLoading(true);
 
     const { data: prof, error: pErr } = await supabase
       .from('profiles')
@@ -84,28 +85,50 @@ export default function ProfileIndexScreen() {
 
     const nextName = (p?.display_name ?? '').trim().replace(/\s+/g, ' ');
     let nextPhone = (p?.phone ?? '').trim();
-    if (!nextPhone) {
+    let nextAddr = (p?.address ?? '').trim();
+    let nextLat = p?.latitude ?? null;
+    let nextLng = p?.longitude ?? null;
+    if (!nextPhone || !nextAddr) {
       const { data: lastOrder } = await supabase
         .from('orders')
-        .select('contact_number')
+        .select('contact_number,delivery_address,latitude,longitude')
         .eq('customer_id', userId)
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
-      nextPhone = (lastOrder?.contact_number ?? '').trim();
-      if (nextPhone && p) {
-        p.phone = nextPhone;
-        await supabase.from('profiles').update({ phone: nextPhone }).eq('user_id', userId);
+      const orderPhone = (lastOrder?.contact_number ?? '').trim();
+      const orderAddress = (lastOrder?.delivery_address ?? '').trim();
+      const patch: { phone?: string; address?: string; latitude?: number | null; longitude?: number | null } = {};
+      if (!nextPhone && orderPhone) {
+        nextPhone = orderPhone;
+        patch.phone = orderPhone;
+      }
+      if (!nextAddr && orderAddress) {
+        nextAddr = orderAddress;
+        patch.address = orderAddress;
+        if (typeof lastOrder?.latitude === 'number' && typeof lastOrder?.longitude === 'number') {
+          nextLat = lastOrder.latitude;
+          nextLng = lastOrder.longitude;
+          patch.latitude = lastOrder.latitude;
+          patch.longitude = lastOrder.longitude;
+        }
+      }
+      if (p && Object.keys(patch).length > 0) {
+        p.phone = nextPhone || p.phone;
+        p.address = nextAddr || p.address;
+        p.latitude = nextLat;
+        p.longitude = nextLng;
+        await supabase.from('profiles').update(patch).eq('user_id', userId);
       }
     }
     setProfile(p);
-    const nextAddr = (p?.address ?? '').trim();
     setName(nextName);
     setPhone(nextPhone);
     setAddress(nextAddr);
-    setCoords(p?.latitude != null && p?.longitude != null ? { latitude: p.latitude, longitude: p.longitude } : null);
+    setCoords(nextLat != null && nextLng != null ? { latitude: nextLat, longitude: nextLng } : null);
     setAvatarPath(p?.avatar_path ?? null);
 
+    loadedOnce.current = true;
     setLoading(false);
   }
 
@@ -113,6 +136,14 @@ export default function ProfileIndexScreen() {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, authLoading]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (editing || saving) return;
+      void load();
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user?.id, authLoading, editing, saving])
+  );
 
   const hasChanges = useMemo(() => {
     const baseName = (profile?.display_name ?? '').trim();

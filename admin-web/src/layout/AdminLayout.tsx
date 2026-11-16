@@ -351,7 +351,6 @@ export function AdminLayout() {
           <MenuIcon open={navOpen} />
         </button>
         <div className="admin-mobile-bar-brand">
-          <img src="/logo.png" alt="" className="admin-mobile-bar-logo" />
           <div className="admin-mobile-bar-text">
             <span className="admin-mobile-bar-title">WaterMarket</span>
             <span className="admin-mobile-bar-page">{pageLabel}</span>

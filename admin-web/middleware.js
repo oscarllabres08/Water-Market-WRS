@@ -1,3 +1,5 @@
+import { isRiderApkPath, riderDownloadCookie, riderTicketFrom, riderTicketValid } from './lib/riderDownloadGuard.js';
+
 const PRIVATE_PATH = /^\/(wrs-management|laundry-management|overall-sales|auth)(\/|$)/;
 
 const LINK_PREVIEWS = {
@@ -85,8 +87,17 @@ const CONTENT_SECURITY_POLICY = [
 ].join('; ');
 
 export const config = {
-  matcher: ['/((?!.*\\.).*)'],
+  matcher: ['/((?!.*\\.).*)', '/downloads/rider-app.apk', '/download/rider-app.apk'],
 };
+
+function continueToApk(token) {
+  return new Response(null, {
+    headers: {
+      'x-middleware-next': '1',
+      'set-cookie': riderDownloadCookie(token),
+    },
+  });
+}
 
 function applySecurityHeaders(headers, pathname) {
   headers.set('X-Content-Type-Options', 'nosniff');
@@ -103,6 +114,19 @@ function applySecurityHeaders(headers, pathname) {
 
 export default async function middleware(request) {
   const url = new URL(request.url);
+  if (isRiderApkPath(url.pathname)) {
+    const token = riderTicketFrom(request.url, request.headers.get('cookie'));
+    const allowed = token ? await riderTicketValid(token) : false;
+    if (!allowed) {
+      return Response.redirect(new URL('/water-refilling', url.origin), 302);
+    }
+    if (url.pathname.toLowerCase() !== '/downloads/rider-app.apk') {
+      const fileUrl = new URL('/downloads/rider-app.apk', url.origin);
+      fileUrl.searchParams.set('t', token);
+      return Response.redirect(fileUrl, 302);
+    }
+    return continueToApk(token);
+  }
   const indexUrl = new URL('/index.html', url.origin);
   const response = await fetch(indexUrl, { headers: { 'accept-encoding': 'identity' } });
   let html = await response.text();

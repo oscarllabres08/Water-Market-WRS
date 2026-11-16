@@ -3,9 +3,19 @@ import { Link, Outlet, useLocation, useSearchParams } from 'react-router-dom';
 
 import { useAuth } from '../../auth/AuthProvider';
 import { PasswordInput } from '../../components/PasswordInput';
+import { ConfirmModal } from '../../components/ConfirmModal';
+import { LaundryCustomerRowMenu } from '../../components/LaundryCustomerRowMenu';
+import { LaundryPeriodPicker } from '../../components/LaundryPeriodPicker';
 import { PageHeader } from '../../components/PageHeader';
 import { ManagementFrame } from '../../layout/ManagementFrame';
 import { money } from '../../lib/format';
+import {
+  ownerDateInputToday,
+  ownerRangeEnd,
+  ownerRangeStart,
+  type OwnerRange,
+} from '../../lib/ownerPortalData';
+import { normalizeCustomerName } from '../../lib/posPayment';
 import { readCurrentPlace } from '../../lib/readCurrentPlace';
 import { supabase } from '../../lib/supabase';
 import { useNotifications } from '../../notifications/NotificationsProvider';
@@ -25,7 +35,14 @@ export function LaundryLayout() {
   const { pathname } = useLocation();
   const current = NAV.find((item) => (item.end ? pathname === item.to : pathname.startsWith(item.to)));
   return (
-    <ManagementFrame brand="Laundry" section={current?.label ?? 'Laundry'} nav={NAV} signOutTo="/laundry-management/login" className="laundry-desk">
+    <ManagementFrame
+      brand="Laundry"
+      section={current?.label ?? 'Laundry'}
+      nav={NAV}
+      signOutTo="/laundry-management/login"
+      className="laundry-desk"
+      showNotifications
+    >
       <Outlet />
     </ManagementFrame>
   );
@@ -103,9 +120,17 @@ function bookingPin(row: Booking): { latitude: number; longitude: number } | nul
   if (typeof row.latitude === 'number' && Number.isFinite(row.latitude) && typeof row.longitude === 'number' && Number.isFinite(row.longitude)) {
     return { latitude: row.latitude, longitude: row.longitude };
   }
-  const match = (row.notes ?? '').match(/^pin:(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)$/);
+  const match = (row.notes ?? '').match(/pin:(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/);
   if (!match) return null;
   return { latitude: Number(match[1]), longitude: Number(match[2]) };
+}
+
+function bookingInstruction(notes: string | null) {
+  return (notes ?? '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line && !/^pin:-?\d/.test(line))
+    .join('\n');
 }
 
 function bookingRoute(row: Booking, origin: string): string | null {
@@ -717,55 +742,101 @@ export function LaundryBookingsPage() {
     };
   }, [businessId]);
 
+  useEffect(() => {
+    if (!businessId) return;
+    const channel = supabase
+      .channel(`laundry-bookings-page-${businessId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'laundry_bookings', filter: `seller_id=eq.${businessId}` }, () => {
+        void load();
+      })
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [businessId, load]);
+
   return (
     <div>
-      <PageHeader title="Bookings" description="Website laundry pickups. Open the map for the route to the customer." />
+      <PageHeader title="Bookings" description="Website and counter laundry pickups. Update status and open the map for the route." />
       {error ? <p className="error-text">{error}</p> : null}
-      <div className="card card-flat">
-        {rows.length === 0 ? <p className="muted-block">No bookings yet.</p> : null}
-        <div className="sales-table-scroll">
-          <table className="data-table">
-            <thead>
-              <tr><th>Customer</th><th>Services</th><th>Schedule</th><th>Status</th></tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => {
-                const route = bookingRoute(row, storeOrigin);
-                return (
-                  <tr key={row.id}>
-                    <td data-label="Customer">
-                      <strong>{row.customer_name}</strong>
-                      <div className="muted-block">{row.contact_number}</div>
-                      <div className="muted-block">{row.address}</div>
-                      {route ? (
-                        <a className="ly-map" href={route} target="_blank" rel="noreferrer">Open in map</a>
-                      ) : null}
-                    </td>
-                    <td data-label="Services">{row.service_summary}</td>
-                    <td data-label="Schedule">{new Date(row.scheduled_for).toLocaleString()}</td>
-                    <td data-label="Status">
-                      <select
-                        className={`ly-select is-${row.status}`}
-                        value={row.status}
-                        aria-label={`Booking status for ${row.customer_name}`}
-                        onChange={(event) => {
-                          void supabase.from('laundry_bookings').update({ status: event.target.value }).eq('id', row.id).then(() => load());
-                        }}
-                      >
-                        {BOOKING_STATUSES.map((status) => (
-                          <option key={status} value={status}>{bookingStatusLabel(status)}</option>
-                        ))}
-                      </select>
-                      {row.status === 'cancelled' ? <span className="ly-tag is-cancelled">Cancelled</span> : null}
-                      {row.status === 'completed' ? <span className="ly-tag is-done">Completed</span> : null}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+      {rows.length === 0 ? (
+        <div className="card card-flat">
+          <p className="muted-block">No bookings yet.</p>
         </div>
-      </div>
+      ) : (
+        <ul className="ly-bookings-list">
+          {rows.map((row) => {
+            const route = bookingRoute(row, storeOrigin);
+            const schedule = new Date(row.scheduled_for).toLocaleString();
+            const landmark = bookingInstruction(row.notes);
+            return (
+              <li key={row.id} className={`ly-booking-card is-${row.status}`}>
+                <div className="ly-booking-card-head">
+                  <div>
+                    <strong className="ly-booking-name">{row.customer_name}</strong>
+                    <span className="ly-booking-source">{row.source === 'website' ? 'Website' : 'Counter'}</span>
+                  </div>
+                  <time className="ly-booking-when" dateTime={row.scheduled_for}>
+                    {schedule}
+                  </time>
+                </div>
+                <div className="ly-booking-body">
+                  <p className="ly-booking-line">
+                    <span className="ly-booking-k">Contact</span>
+                    <span>{row.contact_number || '—'}</span>
+                  </p>
+                  {row.address ? (
+                    <p className="ly-booking-line">
+                      <span className="ly-booking-k">Address</span>
+                      <span>{row.address}</span>
+                    </p>
+                  ) : null}
+                  {landmark ? (
+                    <p className="ly-booking-line">
+                      <span className="ly-booking-k">Landmark</span>
+                      <span>{landmark}</span>
+                    </p>
+                  ) : null}
+                  <p className="ly-booking-line">
+                    <span className="ly-booking-k">Services</span>
+                    <span>{row.service_summary}</span>
+                  </p>
+                </div>
+                <div className="ly-booking-foot">
+                  <div className={`ly-booking-actions${route ? '' : ' is-solo'}`}>
+                    {route ? (
+                      <a className="ly-map ly-map--booking" href={route} target="_blank" rel="noreferrer">
+                        Open in map
+                      </a>
+                    ) : null}
+                    <label className="ly-booking-status">
+                      <span className="ly-booking-k">Status</span>
+                      <select
+                      className={`ly-select ly-select--block is-${row.status}`}
+                      value={row.status}
+                      aria-label={`Booking status for ${row.customer_name}`}
+                      onChange={(event) => {
+                        void supabase
+                          .from('laundry_bookings')
+                          .update({ status: event.target.value })
+                          .eq('id', row.id)
+                          .then(() => load());
+                      }}
+                    >
+                      {BOOKING_STATUSES.map((status) => (
+                        <option key={status} value={status}>
+                          {bookingStatusLabel(status)}
+                        </option>
+                      ))}
+                    </select>
+                    </label>
+                  </div>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </div>
   );
 }
@@ -777,6 +848,7 @@ export function LaundryPosPage() {
   const [cart, setCart] = useState<Record<string, number>>({});
   const [customer, setCustomer] = useState('');
   const [payment, setPayment] = useState<'cash' | 'gcash'>('cash');
+  const [cashReceived, setCashReceived] = useState('');
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -788,6 +860,7 @@ export function LaundryPosPage() {
   const [bookName, setBookName] = useState('');
   const [bookPhone, setBookPhone] = useState('');
   const [bookAddress, setBookAddress] = useState('');
+  const [bookLandmark, setBookLandmark] = useState('');
   const [bookCoords, setBookCoords] = useState<{ latitude: number; longitude: number } | null>(null);
   const [bookLocating, setBookLocating] = useState(false);
   const [bookDate, setBookDate] = useState('');
@@ -866,11 +939,18 @@ export function LaundryPosPage() {
 
   const lines = services.filter((service) => (cart[service.id] ?? 0) > 0);
   const total = lines.reduce((sum, service) => sum + Number(service.price) * (cart[service.id] ?? 0), 0);
+  const cashNum = Number(cashReceived.replace(/,/g, ''));
+  const changeDue =
+    payment === 'cash' && Number.isFinite(cashNum) && cashNum >= total ? Math.max(0, cashNum - total) : 0;
   const bookService = services.find((service) => service.id === bookServiceId) ?? null;
   const websiteBookings = useMemo(() => incoming.filter((row) => row.source === 'website'), [incoming]);
 
   function setQty(id: string, next: number) {
     setCart((current) => ({ ...current, [id]: Math.max(0, Math.min(50, next)) }));
+  }
+
+  function addService(service: Service) {
+    setQty(service.id, (cart[service.id] ?? 0) + 1);
   }
 
   async function checkout() {
@@ -879,8 +959,16 @@ export function LaundryPosPage() {
       setError('Add a service first.');
       return;
     }
+    if (payment === 'cash') {
+      if (!Number.isFinite(cashNum) || cashNum < total) {
+        setError('Enter cash received (at least the total).');
+        return;
+      }
+    }
     setBusy(true);
     setError(null);
+    const cashValue = payment === 'cash' && Number.isFinite(cashNum) ? cashNum : null;
+    const changeValue = payment === 'cash' && cashValue != null ? Math.max(0, cashValue - total) : null;
     const { data, error: saleErr } = await supabase
       .from('laundry_sales')
       .insert({
@@ -888,6 +976,8 @@ export function LaundryPosPage() {
         customer_name: customer.trim() || null,
         payment_method: payment,
         total_amount: total,
+        cash_received: cashValue,
+        change_due: changeValue,
       })
       .select('id')
       .single();
@@ -911,7 +1001,10 @@ export function LaundryPosPage() {
     }
     setCart({});
     setCustomer('');
-    setMessage(`Saved ${money(total)} for ${customer.trim() || 'walk-in'}.`);
+    setCashReceived('');
+    setMessage(
+      `Saved ${money(total)} for ${customer.trim() || 'walk-in'}.${changeValue != null && changeValue > 0 ? ` Change: ${money(changeValue)}.` : ''}`
+    );
   }
 
   function useBookingLocation() {
@@ -956,7 +1049,7 @@ export function LaundryPosPage() {
         scheduled_for: scheduled.toISOString(),
         status: 'confirmed',
         source: 'walk_in',
-        notes: null,
+        notes: bookLandmark.trim() || null,
       })
       .select('id')
       .single();
@@ -980,6 +1073,7 @@ export function LaundryPosPage() {
     setBookName('');
     setBookPhone('');
     setBookAddress('');
+    setBookLandmark('');
     setBookCoords(null);
     setBookDate('');
     setBookTime('');
@@ -1029,6 +1123,7 @@ export function LaundryPosPage() {
             <div className="ly-pos-walkin">
               <section className="card ly-pos-services-panel">
                 <h2 className="ly-pos-panel-title">Services</h2>
+                <p className="muted-block ly-pos-tap-hint">Tap a service card to add it to the ticket.</p>
                 {services.length === 0 ? (
                   <p className="muted-block">No services on the POS yet. Add one in Services &amp; pricing.</p>
                 ) : (
@@ -1036,11 +1131,24 @@ export function LaundryPosPage() {
                     {services.map((service) => {
                       const qty = cart[service.id] ?? 0;
                       return (
-                        <article key={service.id} className={`ly-pos-service-card${qty > 0 ? ' is-active' : ''}`}>
+                        <article
+                          key={service.id}
+                          className={`ly-pos-service-card${qty > 0 ? ' is-active' : ''}`}
+                          role="button"
+                          tabIndex={0}
+                          aria-label={`Add ${service.name} to ticket`}
+                          onClick={() => addService(service)}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter' || event.key === ' ') {
+                              event.preventDefault();
+                              addService(service);
+                            }
+                          }}
+                        >
                           <span className={`ly-svc-icon ly-svc-icon--${serviceIconClass(service.name)}`} aria-hidden />
                           <strong>{service.name}</strong>
                           <span className="ly-pos-service-price">{laundryPriceLabel(Number(service.price), service.unit_label)}</span>
-                          <div className="ly-step">
+                          <div className="ly-step" onClick={(event) => event.stopPropagation()}>
                             <button type="button" aria-label={`Decrease ${service.name}`} onClick={() => setQty(service.id, qty - 1)}>
                               −
                             </button>
@@ -1085,6 +1193,27 @@ export function LaundryPosPage() {
                     GCash
                   </button>
                 </div>
+                {payment === 'cash' ? (
+                  <>
+                    <div className="field">
+                      <label htmlFor="laundry-pos-cash">Cash received</label>
+                      <input
+                        id="laundry-pos-cash"
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        inputMode="decimal"
+                        placeholder="0.00"
+                        value={cashReceived}
+                        onChange={(event) => setCashReceived(event.target.value)}
+                      />
+                    </div>
+                    <div className="ly-change-box">
+                      <span>Change</span>
+                      <strong>{money(changeDue)}</strong>
+                    </div>
+                  </>
+                ) : null}
                 <p className="ly-total">
                   <span>Total</span>
                   <strong>{money(total)}</strong>
@@ -1115,6 +1244,17 @@ export function LaundryPosPage() {
                   value={bookAddress}
                   onChange={(event) => setBookAddress(event.target.value)}
                   placeholder="House no., street, barangay"
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="ly-book-landmark">Instruction / landmark (optional)</label>
+                <textarea
+                  id="ly-book-landmark"
+                  value={bookLandmark}
+                  onChange={(event) => setBookLandmark(event.target.value)}
+                  placeholder="Gate, landmark, or how to find the house"
+                  rows={2}
+                  maxLength={240}
                 />
               </div>
               <button className="ly-pos-loc" type="button" onClick={useBookingLocation} disabled={bookLocating}>
@@ -1244,43 +1384,53 @@ export function LaundryPosPage() {
 
 export function LaundrySalesPage() {
   const { businessId } = useAuth();
-  const [range, setRange] = useState<'today' | 'month'>('month');
+  const [range, setRange] = useState<OwnerRange>('month');
+  const [dateInput, setDateInput] = useState(() => ownerDateInputToday());
   const [rows, setRows] = useState<Sale[]>([]);
   const [expenses, setExpenses] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!businessId) return;
-    const from = range === 'today' ? startOfToday() : startOfMonth();
+    if (range === 'date' && !dateInput) return;
+    const periodDate = range === 'date' ? dateInput : undefined;
+    const from = ownerRangeStart(range, new Date(), periodDate);
+    const to = ownerRangeEnd(range, new Date(), periodDate);
+    const fromIso = from.toISOString();
+    const toIso = to.toISOString();
+    const fromDate = fromIso.slice(0, 10);
+    const toDate = toIso.slice(0, 10);
     void (async () => {
-      const fromIso = from.toISOString();
       let saleRes = await supabase
         .from('laundry_sales')
         .select('id,customer_name,payment_method,total_amount,created_at,laundry_sale_items(service_name,quantity,unit_price)')
         .eq('seller_id', businessId)
         .gte('created_at', fromIso)
+        .lte('created_at', toIso)
         .order('created_at', { ascending: false })
-        .limit(300);
+        .limit(500);
       if (saleRes.error) {
         saleRes = (await supabase
           .from('laundry_sales')
           .select('id,customer_name,payment_method,total_amount,created_at')
           .eq('seller_id', businessId)
           .gte('created_at', fromIso)
+          .lte('created_at', toIso)
           .order('created_at', { ascending: false })
-          .limit(300)) as typeof saleRes;
+          .limit(500)) as typeof saleRes;
       }
       const expenseRes = await supabase
         .from('business_expenses')
         .select('amount')
         .eq('seller_id', businessId)
         .eq('business_unit', 'laundry')
-        .gte('expense_date', fromIso.slice(0, 10));
+        .gte('expense_date', fromDate)
+        .lte('expense_date', toDate);
       setError(saleRes.error?.message || expenseRes.error?.message || null);
       setRows((saleRes.data ?? []) as Sale[]);
       setExpenses(sumAmounts(expenseRes.data ?? []));
     })();
-  }, [businessId, range]);
+  }, [businessId, range, dateInput]);
 
   const sales = sumAmounts(rows);
 
@@ -1288,10 +1438,13 @@ export function LaundrySalesPage() {
     <div>
       <PageHeader title="Sales" description="Laundry sales report. Water station sales are not included." />
       {error ? <p className="error-text">{error}</p> : null}
-      <div className="ly-range" role="tablist">
-        <button type="button" className={range === 'today' ? 'is-on' : ''} onClick={() => setRange('today')}>Today</button>
-        <button type="button" className={range === 'month' ? 'is-on' : ''} onClick={() => setRange('month')}>This month</button>
-      </div>
+      <LaundryPeriodPicker
+        range={range}
+        dateInput={dateInput}
+        onRange={setRange}
+        onDateInput={setDateInput}
+        dateInputId="laundry-sales-date"
+      />
       <div className="grid-stats ly-sales-stats">
         <article className="stat-card">
           <div className="label">Sales</div>
@@ -1344,10 +1497,19 @@ export function LaundryCustomersPage() {
   const { businessId } = useAuth();
   const [people, setPeople] = useState<CustomerRow[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [viewFor, setViewFor] = useState<CustomerRow | null>(null);
+  const [editFor, setEditFor] = useState<CustomerRow | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editContact, setEditContact] = useState('');
+  const [editAddress, setEditAddress] = useState('');
+  const [editBusy, setEditBusy] = useState(false);
+  const [editNotice, setEditNotice] = useState<string | null>(null);
+  const [removeTarget, setRemoveTarget] = useState<CustomerRow | null>(null);
+  const [removeBusy, setRemoveBusy] = useState(false);
 
-  useEffect(() => {
+  const load = useCallback(async () => {
     if (!businessId) return;
-    void Promise.all([
+    const [bookingRes, saleRes, savedRes, hiddenRes] = await Promise.all([
       supabase
         .from('laundry_bookings')
         .select('customer_name,contact_number,address,created_at')
@@ -1360,56 +1522,251 @@ export function LaundryCustomersPage() {
         .eq('seller_id', businessId)
         .order('created_at', { ascending: false })
         .limit(400),
-    ]).then(([bookingRes, saleRes]) => {
-      setError(bookingRes.error?.message || saleRes.error?.message || null);
-      const map = new Map<string, CustomerRow>();
-      const touch = (name: string, when: string, contact = '', address = '') => {
-        const clean = name.trim();
-        if (!clean) return;
-        const key = clean.toLowerCase();
-        const current = map.get(key);
-        if (!current) {
-          map.set(key, { key, name: clean, contact, address, visits: 1, lastSeen: when });
-          return;
-        }
-        current.visits += 1;
-        if (!current.contact && contact) current.contact = contact;
-        if (!current.address && address) current.address = address;
-        if (new Date(when).getTime() > new Date(current.lastSeen).getTime()) current.lastSeen = when;
-      };
-      for (const row of bookingRes.data ?? []) touch(row.customer_name, row.created_at, row.contact_number ?? '', row.address ?? '');
-      for (const row of saleRes.data ?? []) touch(row.customer_name ?? '', row.created_at);
-      setPeople([...map.values()].sort((a, b) => a.name.localeCompare(b.name)));
-    });
+      supabase
+        .from('seller_pos_customers')
+        .select('customer_name_key,display_name,phone,address')
+        .eq('seller_id', businessId),
+      supabase.from('seller_hidden_pos_customers').select('customer_name_key').eq('seller_id', businessId),
+    ]);
+    setError(bookingRes.error?.message || saleRes.error?.message || savedRes.error?.message || null);
+    const hidden = new Set((hiddenRes.data ?? []).map((row) => row.customer_name_key));
+    const savedByKey = new Map(
+      (savedRes.data ?? []).map((row) => [
+        row.customer_name_key,
+        { name: row.display_name, phone: row.phone ?? '', address: row.address ?? '' },
+      ])
+    );
+    const map = new Map<string, CustomerRow>();
+    const touch = (name: string, when: string, contact = '', address = '') => {
+      const clean = name.trim();
+      if (!clean) return;
+      const key = normalizeCustomerName(clean);
+      if (hidden.has(key)) return;
+      const saved = savedByKey.get(key);
+      const displayName = saved?.name?.trim() || clean;
+      const current = map.get(key);
+      if (!current) {
+        map.set(key, {
+          key,
+          name: displayName,
+          contact: saved?.phone || contact,
+          address: saved?.address || address,
+          visits: 1,
+          lastSeen: when,
+        });
+        return;
+      }
+      current.visits += 1;
+      if (!current.contact && contact) current.contact = contact;
+      if (!current.address && address) current.address = address;
+      if (new Date(when).getTime() > new Date(current.lastSeen).getTime()) current.lastSeen = when;
+    };
+    for (const [savedKey, saved] of savedByKey.entries()) {
+      if (hidden.has(savedKey)) continue;
+      if (!map.has(savedKey)) {
+        map.set(savedKey, {
+          key: savedKey,
+          name: saved.name,
+          contact: saved.phone,
+          address: saved.address,
+          visits: 0,
+          lastSeen: new Date(0).toISOString(),
+        });
+      }
+    }
+    for (const row of bookingRes.data ?? []) touch(row.customer_name, row.created_at, row.contact_number ?? '', row.address ?? '');
+    for (const row of saleRes.data ?? []) touch(row.customer_name ?? '', row.created_at);
+    setPeople([...map.values()].sort((a, b) => a.name.localeCompare(b.name)));
   }, [businessId]);
 
-  const named = useMemo(() => people, [people]);
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  function openView(row: CustomerRow) {
+    setViewFor(row);
+  }
+
+  function openEdit(row: CustomerRow) {
+    setEditFor(row);
+    setEditName(row.name);
+    setEditContact(row.contact);
+    setEditAddress(row.address);
+    setEditNotice(null);
+  }
+
+  function closeEdit() {
+    if (editBusy) return;
+    setEditFor(null);
+    setEditNotice(null);
+  }
+
+  async function saveEdit(event: FormEvent) {
+    event.preventDefault();
+    if (!businessId || !editFor) return;
+    const name = editName.trim().replace(/\s+/g, ' ');
+    if (name.length < 2) {
+      setEditNotice('Enter a customer name.');
+      return;
+    }
+    const key = normalizeCustomerName(name);
+    setEditBusy(true);
+    setEditNotice(null);
+    setError(null);
+    const { error: err } = await supabase.from('seller_pos_customers').upsert(
+      {
+        seller_id: businessId,
+        customer_name_key: editFor.key || key,
+        display_name: name,
+        phone: editContact.trim() || null,
+        address: editAddress.trim() || null,
+      },
+      { onConflict: 'seller_id,customer_name_key' }
+    );
+    setEditBusy(false);
+    if (err) {
+      setEditNotice(/phone|address|column/i.test(err.message) ? 'Run migration 0019_customer_contact.sql, then try again.' : err.message);
+      return;
+    }
+    setEditFor(null);
+    await load();
+  }
+
+  async function confirmRemove() {
+    if (!businessId || !removeTarget) return;
+    setRemoveBusy(true);
+    setError(null);
+    const { error: err } = await supabase.from('seller_hidden_pos_customers').insert({
+      seller_id: businessId,
+      customer_name_key: removeTarget.key,
+    });
+    setRemoveBusy(false);
+    if (err) {
+      setError(err.message);
+      return;
+    }
+    if (viewFor?.key === removeTarget.key) setViewFor(null);
+    setRemoveTarget(null);
+    await load();
+  }
 
   return (
     <div>
       <PageHeader title="Customers" description="Names from website bookings and POS sales." />
       {error ? <p className="error-text">{error}</p> : null}
-      <div className="card card-flat">
-        {named.length === 0 ? <p className="muted-block">No customer names yet.</p> : null}
-        <div className="sales-table-scroll">
-          <table className="data-table">
-            <thead>
-              <tr><th>Name</th><th>Contact</th><th>Address</th><th>Visits</th><th>Last seen</th></tr>
-            </thead>
-            <tbody>
-              {named.map((row) => (
-                <tr key={row.key}>
-                  <td data-label="Name"><strong>{row.name}</strong></td>
-                  <td data-label="Contact">{row.contact || '—'}</td>
-                  <td data-label="Address">{row.address || '—'}</td>
-                  <td data-label="Visits">{row.visits}</td>
-                  <td data-label="Last seen">{new Date(row.lastSeen).toLocaleDateString()}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      <div className="card card-flat ly-customer-card">
+        {people.length === 0 ? <p className="muted-block">No customer names yet.</p> : null}
+        {people.length > 0 ? (
+          <ul className="ly-customer-list">
+            {people.map((row) => (
+              <li key={row.key} className="ly-customer-row">
+                <button type="button" className="ly-customer-name" onClick={() => openView(row)}>
+                  <span className="ly-customer-initial" aria-hidden>
+                    {(row.name.trim()[0] ?? 'C').toUpperCase()}
+                  </span>
+                  <span className="ly-customer-name-meta">
+                    <span className="ly-customer-title">{row.name}</span>
+                    <span className="ly-customer-sub">
+                      {row.visits} visit{row.visits === 1 ? '' : 's'}
+                      {row.visits > 0 && new Date(row.lastSeen).getTime() > 0
+                        ? ` · Last ${new Date(row.lastSeen).toLocaleDateString()}`
+                        : ''}
+                    </span>
+                  </span>
+                </button>
+                <LaundryCustomerRowMenu onEdit={() => openEdit(row)} onRemove={() => setRemoveTarget(row)} />
+              </li>
+            ))}
+          </ul>
+        ) : null}
       </div>
+
+      {viewFor ? (
+        <div className="modal-backdrop" role="presentation" onClick={() => setViewFor(null)}>
+          <div
+            className="modal-card ly-customer-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="ly-customer-view-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h2 id="ly-customer-view-title" className="card-title">
+              Customer details
+            </h2>
+            <p className="ly-customer-view-name">{viewFor.name}</p>
+            <dl className="ly-customer-details">
+              <div>
+                <dt>Contact</dt>
+                <dd>{viewFor.contact || '—'}</dd>
+              </div>
+              <div>
+                <dt>Address</dt>
+                <dd>{viewFor.address || '—'}</dd>
+              </div>
+              <div>
+                <dt>Visits</dt>
+                <dd>{viewFor.visits}</dd>
+              </div>
+              <div>
+                <dt>Last seen</dt>
+                <dd>{new Date(viewFor.lastSeen).toLocaleString()}</dd>
+              </div>
+            </dl>
+            <div className="ly-customer-modal-actions">
+              <button type="button" className="btn btn-ghost" onClick={() => setViewFor(null)}>
+                Close
+              </button>
+              <button type="button" className="btn btn-primary" onClick={() => { openEdit(viewFor); setViewFor(null); }}>
+                Edit details
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {editFor ? (
+        <div className="modal-backdrop" role="presentation" onClick={closeEdit}>
+          <div className="modal-card ly-customer-modal" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
+            <h2 className="card-title">Edit customer</h2>
+            {editNotice ? <p className="error-text">{editNotice}</p> : null}
+            <form className="ly-customer-edit-form" onSubmit={(event) => void saveEdit(event)}>
+              <div className="field">
+                <label htmlFor="ly-cust-name">Name</label>
+                <input id="ly-cust-name" value={editName} onChange={(event) => setEditName(event.target.value)} required />
+              </div>
+              <div className="field">
+                <label htmlFor="ly-cust-phone">Contact</label>
+                <input id="ly-cust-phone" value={editContact} onChange={(event) => setEditContact(event.target.value)} />
+              </div>
+              <div className="field">
+                <label htmlFor="ly-cust-address">Address</label>
+                <input id="ly-cust-address" value={editAddress} onChange={(event) => setEditAddress(event.target.value)} />
+              </div>
+              <div className="ly-customer-modal-actions">
+                <button type="button" className="btn btn-ghost" onClick={closeEdit} disabled={editBusy}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn btn-primary" disabled={editBusy}>
+                  {editBusy ? 'Saving…' : 'Save'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+
+      <ConfirmModal
+        open={!!removeTarget}
+        title="Remove customer?"
+        message={removeTarget ? `Hide ${removeTarget.name} from this list? Past bookings and sales stay in the system.` : ''}
+        confirmLabel="Remove"
+        variant="danger"
+        busy={removeBusy}
+        onCancel={() => {
+          if (!removeBusy) setRemoveTarget(null);
+        }}
+        onConfirm={() => void confirmRemove()}
+      />
     </div>
   );
 }

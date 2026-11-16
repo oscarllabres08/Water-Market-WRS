@@ -1094,12 +1094,22 @@ export default function OrderDetailsScreen() {
                   </View>
                 </View>
 
-                <View style={{ marginTop: 12, flexDirection: 'row', gap: 10 }}>
-                  <View style={{ flex: 1 }}>
-                    <Button title="Open in Maps" onPress={openInMaps} />
+                <View style={{ marginTop: 14, flexDirection: 'row', gap: 10, alignItems: 'stretch' }}>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Button
+                      title="Open in Maps"
+                      leadingIcon={<Ionicons name="map-outline" size={18} color={theme.colors.onPrimary} />}
+                      onPress={openInMaps}
+                    />
                   </View>
-                  <View style={{ flex: 1 }}>
-                    <Button variant="ghost" title="Call Customer" onPress={callCustomer} disabled={!order.contact_number?.trim()} />
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Button
+                      variant="ghost"
+                      title="Call Customer"
+                      leadingIcon={<Ionicons name="call-outline" size={18} color={theme.colors.primaryDark} />}
+                      onPress={callCustomer}
+                      disabled={!order.contact_number?.trim()}
+                    />
                   </View>
                 </View>
 

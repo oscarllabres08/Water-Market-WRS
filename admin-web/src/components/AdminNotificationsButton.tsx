@@ -30,6 +30,7 @@ function kindLabel(kind: string) {
   if (kind === 'order_activity') return 'Update';
   if (kind === 'pending_order_reminder') return 'Reminder';
   if (kind === 'seller_registration_pending') return 'Staff';
+  if (kind === 'laundry_booking') return 'Laundry';
   return 'Alert';
 }
 
@@ -191,7 +192,7 @@ export function AdminNotificationsButton({ placement = 'desktop' }: { placement?
               <div>
                 <strong>Notifications</strong>
                 <p className="admin-notifications-panel-hint">
-                  Orders, deliveries &amp; staff requests
+                  Bookings, orders &amp; staff requests
                 </p>
               </div>
               <button type="button" className="admin-notifications-clear" onClick={() => void clearAll()}>

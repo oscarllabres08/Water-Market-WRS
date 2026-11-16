@@ -338,7 +338,9 @@ export function DeliveryManagementPage() {
     }
     const seen = new Set<string>();
     setRiders(riderRows.filter((rider) => (seen.has(rider.user_id) ? false : (seen.add(rider.user_id), true))));
-    setRows([...orderRows, ...laundryRows, ...posRows]);
+    const merged = [...orderRows, ...laundryRows, ...posRows];
+    merged.sort((a, b) => (b.placedAt ?? '').localeCompare(a.placedAt ?? ''));
+    setRows(merged);
     setLoading(false);
   }, [businessId]);
 
@@ -625,7 +627,9 @@ function DeliveryDetailModal({
           </div>
           <div>
             <dt>Address</dt>
-            <dd>{row.address.trim() || '—'}</dd>
+            <dd className="delivery-detail-address">
+              <p className="delivery-detail-address-text">{row.address.trim() || '—'}</p>
+            </dd>
           </div>
           {row.landmark.trim() ? (
             <div>
@@ -640,13 +644,13 @@ function DeliveryDetailModal({
             </div>
           ) : null}
         </dl>
-        <div className="delivery-detail-actions">
+        <div className={`delivery-detail-actions${route ? '' : ' delivery-detail-actions--single'}`}>
           {route ? (
-            <a className="order-map" href={route} target="_blank" rel="noreferrer">
-              Open in map
+            <a className="btn btn-primary btn-water delivery-detail-map-btn" href={route} target="_blank" rel="noreferrer">
+              Open in Maps
             </a>
           ) : null}
-          <button type="button" className="btn btn-ghost" onClick={onClose}>
+          <button type="button" className="btn btn-ghost delivery-detail-close-btn" onClick={onClose}>
             Close
           </button>
         </div>

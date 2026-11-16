@@ -139,7 +139,6 @@ export function ManagementFrame({
           {open ? '✕' : '☰'}
         </button>
         <div className="admin-mobile-bar-brand">
-          <img src="/logo.png" alt="" className="admin-mobile-bar-logo" />
           <div className="admin-mobile-bar-text">
             <span className="admin-mobile-bar-title">WaterMarket</span>
             <span className="admin-mobile-bar-page">{sectionMobile ?? section}</span>
@@ -151,7 +150,14 @@ export function ManagementFrame({
           </div>
         ) : null}
       </header>
-      <button type="button" className="admin-nav-backdrop" aria-hidden={!open} onClick={() => setOpen(false)} />
+      <button
+        type="button"
+        className="admin-nav-backdrop"
+        aria-hidden={!open}
+        tabIndex={open ? 0 : -1}
+        disabled={!open}
+        onClick={() => setOpen(false)}
+      />
       <aside className="admin-sidebar">
         <div className="admin-sidebar-inner">
           <div className="admin-brand">
@@ -200,6 +206,7 @@ export function ManagementFrame({
                         <NavIcon id="settings" />
                       </span>
                       <span className="admin-nav-label">Settings</span>
+                      <span className="admin-nav-label admin-nav-label--short">Settings</span>
                     </span>
                     <span className="store-status-caret" aria-hidden>
                       {settingsOpen ? '▴' : '▾'}

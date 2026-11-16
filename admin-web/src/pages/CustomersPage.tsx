@@ -160,6 +160,15 @@ export function CustomersPage() {
   const [removeTarget, setRemoveTarget] = useState<CustomerRow | null>(null);
   const [removeBusy, setRemoveBusy] = useState(false);
   const [removeNotice, setRemoveNotice] = useState<string | null>(null);
+  const [contactPhone, setContactPhone] = useState('');
+  const [contactAddress, setContactAddress] = useState('');
+  const [contactBusy, setContactBusy] = useState(false);
+  const [contactNotice, setContactNotice] = useState<string | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
+  const [addName, setAddName] = useState('');
+  const [addPhone, setAddPhone] = useState('');
+  const [addAddress, setAddAddress] = useState('');
+  const [addBusy, setAddBusy] = useState(false);
 
   useEffect(() => {
     if (!businessId || !selectedEntry || selectedEntry.source !== 'order') return;
@@ -476,13 +485,29 @@ export function CustomersPage() {
       });
     }
 
-    const savedPosRes = await supabase
+    const savedPosWithContact = await supabase
       .from('seller_pos_customers')
-      .select('customer_name_key, display_name')
+      .select('customer_name_key, display_name, phone, address')
       .eq('seller_id', businessId);
+    const savedPosRes =
+      savedPosWithContact.error && /phone|address|column/i.test(savedPosWithContact.error.message)
+        ? await supabase.from('seller_pos_customers').select('customer_name_key, display_name').eq('seller_id', businessId)
+        : savedPosWithContact;
+    const savedContacts = new Map<string, { phone: string; address: string }>();
     if (!savedPosRes.error) {
-      for (const row of (savedPosRes.data ?? []) as { customer_name_key: string; display_name: string | null }[]) {
+      for (const row of (savedPosRes.data ?? []) as {
+        customer_name_key: string;
+        display_name: string | null;
+        phone?: string | null;
+        address?: string | null;
+      }[]) {
         const key = normalizeCustomerName(row.customer_name_key);
+        if (key) {
+          savedContacts.set(key, {
+            phone: row.phone?.trim() || '',
+            address: row.address?.trim() || '',
+          });
+        }
         const existingBalance = balByPosKey.get(key);
         if (!key || byName.has(key) || posAgg.has(key) || (existingBalance?.outstanding_count ?? 0) > 0) continue;
         list.push({
@@ -536,6 +561,14 @@ export function CustomersPage() {
         posNameKey: key,
         profileIds: [],
       });
+    }
+
+    for (const row of list) {
+      if (!row.isPosOnly || !row.posNameKey) continue;
+      const saved = savedContacts.get(row.posNameKey);
+      if (!saved) continue;
+      if (saved.phone) row.phone = saved.phone;
+      if (saved.address) row.address = saved.address;
     }
 
     const visible = list.filter((r) => {
@@ -766,6 +799,111 @@ export function CustomersPage() {
     }
   }
 
+  function blankContact(value: string) {
+    const trimmed = value.trim();
+    if (!trimmed || trimmed === '—' || trimmed === 'Walk-in POS') return '';
+    return trimmed;
+  }
+
+  function openDetails(row: CustomerRow) {
+    setDetailsFor(row);
+    setContactPhone(blankContact(row.phone));
+    setContactAddress(blankContact(row.address));
+    setContactNotice(null);
+  }
+
+  async function saveCustomerContact() {
+    if (!businessId || !detailsFor) return;
+    const phone = contactPhone.trim();
+    const address = contactAddress.trim();
+    setContactBusy(true);
+    setContactNotice(null);
+    setError(null);
+    try {
+      if (detailsFor.isPosOnly) {
+        const key = detailsFor.posNameKey;
+        if (!key) throw new Error('Could not identify this customer.');
+        const { error: err } = await supabase.from('seller_pos_customers').upsert(
+          {
+            seller_id: businessId,
+            customer_name_key: key,
+            display_name: detailsFor.name,
+            phone: phone || null,
+            address: address || null,
+          },
+          { onConflict: 'seller_id,customer_name_key' }
+        );
+        if (err) throw err;
+      } else {
+        const ids = detailsFor.profileIds.length > 0 ? detailsFor.profileIds : [detailsFor.id];
+        for (const id of ids) {
+          const { error: err } = await supabase.rpc('admin_update_customer_contact', {
+            p_user_id: id,
+            p_phone: phone,
+            p_address: address,
+          });
+          if (err) throw err;
+        }
+      }
+      const next = { ...detailsFor, phone: phone || '—', address: address || '—' };
+      setDetailsFor(next);
+      setContactNotice('Contact saved.');
+      await load();
+    } catch (ex) {
+      const message = ex instanceof Error ? ex.message : 'Could not save contact.';
+      setError(
+        /phone|address|admin_update_customer_contact|column/i.test(message)
+          ? 'Run supabase/migrations/0019_customer_contact.sql in the Supabase SQL Editor, then save again.'
+          : message
+      );
+    } finally {
+      setContactBusy(false);
+    }
+  }
+
+  async function addCustomer() {
+    if (!businessId) return;
+    const name = addName.trim().replace(/\s+/g, ' ');
+    const phone = addPhone.trim();
+    const address = addAddress.trim();
+    if (name.length < 2) {
+      setError('Enter the customer name.');
+      return;
+    }
+    setAddBusy(true);
+    setError(null);
+    try {
+      const key = normalizeCustomerName(name);
+      const { error: err } = await supabase.from('seller_pos_customers').upsert(
+        {
+          seller_id: businessId,
+          customer_name_key: key,
+          display_name: name,
+          phone: phone || null,
+          address: address || null,
+        },
+        { onConflict: 'seller_id,customer_name_key' }
+      );
+      if (err) throw err;
+      await supabase.from('seller_hidden_pos_customers').delete().eq('seller_id', businessId).eq('customer_name_key', key);
+      setAddOpen(false);
+      setAddName('');
+      setAddPhone('');
+      setAddAddress('');
+      setRemoveNotice(`${name} added to the customer list.`);
+      await load();
+    } catch (ex) {
+      const message = ex instanceof Error ? ex.message : 'Could not add customer.';
+      setError(
+        /phone|address|column/i.test(message)
+          ? 'Run supabase/migrations/0019_customer_contact.sql in the Supabase SQL Editor, then add the customer again.'
+          : message
+      );
+    } finally {
+      setAddBusy(false);
+    }
+  }
+
   function paymentMethodLabel(entry: HistoryEntry): string {
     if (entry.source === 'pos') return formatPosPaymentMethod(entry.payment_method);
     const m = (entry.payment_method ?? '').toLowerCase();
@@ -842,6 +980,9 @@ export function CustomersPage() {
             ))}
           </div>
         </div>
+        <button type="button" className="btn btn-primary customer-add-btn" onClick={() => setAddOpen(true)}>
+          Add customer
+        </button>
       </div>
 
       <div className="card">
@@ -873,11 +1014,11 @@ export function CustomersPage() {
                       </span>
                       <div className="customer-list-name-meta">
                         <strong>{r.name}</strong>
-                        {r.isPosOnly ? (
-                          <div className="customer-list-sub">Walk-in POS</div>
-                        ) : (
-                          <div className="customer-list-sub">{r.phone}</div>
-                        )}
+                        <div className="customer-list-sub">
+                          {r.isPosOnly
+                            ? blankContact(r.phone) || 'Walk-in POS'
+                            : r.phone}
+                        </div>
                       </div>
                     </div>
                   </td>
@@ -908,7 +1049,7 @@ export function CustomersPage() {
                   </td>
                   <td>
                     <CustomerRowMenu
-                      onDetails={() => setDetailsFor(r)}
+                      onDetails={() => openDetails(r)}
                       onHistory={() => void openHistory(r)}
                       onRemove={() => setRemoveTarget(r)}
                     />
@@ -920,6 +1061,44 @@ export function CustomersPage() {
           </table>
         </div>
       </div>
+
+      {addOpen ? (
+        <div className="modal-backdrop" role="presentation" onClick={() => !addBusy && setAddOpen(false)}>
+          <form
+            className="modal-card customer-details-modal"
+            onClick={(e) => e.stopPropagation()}
+            onSubmit={(e) => {
+              e.preventDefault();
+              void addCustomer();
+            }}
+          >
+            <h2 className="card-title">Add customer</h2>
+            <p className="muted-block">Name, contact number, and address. This customer appears on the list for walk-in orders.</p>
+            <div className="customer-add-fields">
+              <label>
+                Name
+                <input value={addName} onChange={(e) => setAddName(e.target.value)} placeholder="Customer name" required maxLength={80} />
+              </label>
+              <label>
+                Contact
+                <input value={addPhone} onChange={(e) => setAddPhone(e.target.value)} placeholder="09xx xxx xxxx" type="tel" maxLength={30} />
+              </label>
+              <label>
+                Address
+                <textarea value={addAddress} onChange={(e) => setAddAddress(e.target.value)} placeholder="Street, barangay, city" rows={3} maxLength={240} />
+              </label>
+            </div>
+            <div className="delivery-detail-actions">
+              <button type="submit" className="btn btn-primary delivery-detail-map-btn" disabled={addBusy}>
+                {addBusy ? 'Saving…' : 'Save'}
+              </button>
+              <button type="button" className="btn btn-ghost delivery-detail-close-btn" disabled={addBusy} onClick={() => setAddOpen(false)}>
+                Close
+              </button>
+            </div>
+          </form>
+        </div>
+      ) : null}
 
       {detailsFor ? (
         <div className="modal-backdrop" role="presentation" onClick={() => setDetailsFor(null)}>
@@ -952,17 +1131,28 @@ export function CustomersPage() {
               </div>
               <div>
                 <dt>Phone</dt>
-                <dd>{detailsFor.phone}</dd>
+                <dd>
+                  <input
+                    className="customer-contact-input"
+                    type="tel"
+                    value={contactPhone}
+                    onChange={(e) => setContactPhone(e.target.value)}
+                    placeholder="09xx xxx xxxx"
+                    maxLength={30}
+                  />
+                </dd>
               </div>
               <div>
                 <dt>Address</dt>
                 <dd>
-                  <div>{detailsFor.address}</div>
-                  {customerMapHref(detailsFor) ? (
-                    <a className="order-map" href={customerMapHref(detailsFor) ?? undefined} target="_blank" rel="noreferrer">
-                      Open in map
-                    </a>
-                  ) : null}
+                  <textarea
+                    className="customer-contact-input"
+                    value={contactAddress}
+                    onChange={(e) => setContactAddress(e.target.value)}
+                    placeholder="Street, barangay, city"
+                    rows={2}
+                    maxLength={240}
+                  />
                 </dd>
               </div>
               <div>
@@ -992,7 +1182,36 @@ export function CustomersPage() {
                 </div>
               ) : null}
             </dl>
-            <div className="row-actions">
+            {contactNotice ? <p className="success-text">{contactNotice}</p> : null}
+            <div className="customer-details-save">
+              <button type="button" className="btn btn-primary" disabled={contactBusy} onClick={() => void saveCustomerContact()}>
+                {contactBusy ? 'Saving…' : 'Save'}
+              </button>
+            </div>
+            <div
+              className={`delivery-detail-actions customer-details-actions${
+                customerMapHref(detailsFor) ? '' : ' delivery-detail-actions--single'
+              }`}
+            >
+              {customerMapHref(detailsFor) ? (
+                <a
+                  className="btn btn-primary btn-water delivery-detail-map-btn"
+                  href={customerMapHref(detailsFor) ?? undefined}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Open in Maps
+                </a>
+              ) : null}
+              <button
+                type="button"
+                className="btn btn-ghost delivery-detail-close-btn"
+                onClick={() => setDetailsFor(null)}
+              >
+                Close
+              </button>
+            </div>
+            <div className="row-actions customer-details-extra">
               <button
                 type="button"
                 className="btn btn-primary btn-sm"
@@ -1003,9 +1222,6 @@ export function CustomersPage() {
                 }}
               >
                 Order history
-              </button>
-              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setDetailsFor(null)}>
-                Close
               </button>
             </div>
           </div>

@@ -548,7 +548,7 @@ export default function OrderScreen() {
       const savedAddress = deliveryAddress.trim();
       const savedLat = coords?.latitude ?? profileDefaults?.latitude ?? null;
       const savedLng = coords?.longitude ?? profileDefaults?.longitude ?? null;
-      const { error: profileErr } = await supabase
+      const { data: savedProfile, error: profileErr } = await supabase
         .from('profiles')
         .update({
           phone: savedPhone,
@@ -556,8 +556,11 @@ export default function OrderScreen() {
           latitude: savedLat,
           longitude: savedLng,
         })
-        .eq('user_id', user.id);
+        .eq('user_id', user.id)
+        .select('phone,address')
+        .maybeSingle();
       if (profileErr) throw profileErr;
+      if (!savedProfile) throw new Error('Could not save your contact number and address to your profile.');
 
       const proofPath =
         paymentMethod === 'gcash' || paymentMethod === 'maya'
@@ -1329,7 +1332,7 @@ export default function OrderScreen() {
                       </View>
                       <View style={{ flex: 1 }}>
                         <TextField
-                          label="Notes / Instruction (optional)"
+                          label="Instruction / landmark (optional)"
                           value={notes}
                           onChangeText={setNotes}
                           placeholder="Gate code, landmark, etc."

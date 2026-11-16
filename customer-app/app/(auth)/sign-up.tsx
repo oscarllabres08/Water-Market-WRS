@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import { sanitizeAuthPassword } from '../../lib/authInputSecurity';
@@ -14,8 +14,7 @@ import {
 import { LEGAL_VERSION } from '../../lib/legalContent';
 import { setLegalOnboardingAccepted } from '../../lib/legalOnboarding';
 import { supabase } from '../../lib/supabase';
-import { Screen } from '../../ui/components/Screen';
-import { Card } from '../../ui/components/Card';
+import { AuthScreenLayout } from '../../ui/components/AuthScreenLayout';
 import { Text } from '../../ui/components/Text';
 import { TextField } from '../../ui/components/TextField';
 import { Button } from '../../ui/components/Button';
@@ -119,98 +118,68 @@ export default function SignUpScreen() {
   }
 
   return (
-    <Screen style={{ padding: 0 }}>
-      <KeyboardAvoidingView
-        style={{ flex: 1, width: '100%' }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
-      >
-      <ScrollView
-        style={{ flex: 1 }}
-        bounces={false}
-        alwaysBounceVertical={false}
-        overScrollMode="never"
-        keyboardDismissMode="on-drag"
-        keyboardShouldPersistTaps="handled"
-        automaticallyAdjustKeyboardInsets
-        contentContainerStyle={{ padding: theme.spacing.md, paddingBottom: theme.spacing.xl }}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={{ alignItems: 'center', marginBottom: theme.spacing.sm }}>
-          <Image
-            source={authLogo}
-            style={{ width: 280, height: 168 }}
-            resizeMode="contain"
-            accessibilityLabel="WaterMarket"
-            accessibilityIgnoresInvertColors
+    <AuthScreenLayout
+      logo={authLogo}
+      kicker="Water refilling and ice"
+      brand="WaterMarket"
+      tagline="Create an account with a username. No email needed."
+      highlights={['Saved address', 'Order history', 'Live updates']}
+      title="Create account"
+      subtitle="Enter your name and a username to get started."
+      footer={
+        <Pressable onPress={() => router.replace('/(auth)/sign-in')} style={{ alignItems: 'center', paddingVertical: 10 }}>
+          <Text weight="bold" style={{ color: theme.colors.primary }}>
+            Back to login
+          </Text>
+        </Pressable>
+      }
+    >
+      <View style={{ gap: theme.spacing.sm }}>
+          <TextField
+            label="Complete name"
+            value={completeName}
+            onChangeText={setCompleteName}
+            placeholder="Juan Dela Cruz"
+            autoCapitalize="words"
+            maxLength={80}
           />
-        </View>
-        <Text variant="title" weight="extrabold">
-          Create account
-        </Text>
-        <Text variant="muted" style={{ marginTop: 4 }}>
-          Enter your name and a username. No email needed.
-        </Text>
-
-        <View style={{ marginTop: theme.spacing.md, gap: theme.spacing.sm }}>
-          <Card>
-            <View style={{ gap: 10 }}>
-              <TextField
-                label="Complete name"
-                value={completeName}
-                onChangeText={setCompleteName}
-                placeholder="Juan Dela Cruz"
-                autoCapitalize="words"
-                maxLength={80}
-              />
-              <TextField
-                label="Username"
-                value={username}
-                onChangeText={(t) => setUsername(sanitizeCustomerUsername(t))}
-                placeholder="juan123"
-                autoCapitalize="none"
-                autoCorrect={false}
-                maxLength={20}
-              />
-              <TextField
-                label="Password"
-                value={password}
-                onChangeText={(t) => setPassword(sanitizeAuthPassword(t))}
-                placeholder="Create a password"
-                autoCapitalize="none"
-                autoCorrect={false}
-                passwordToggleable
-                maxLength={128}
-              />
-              <TextField
-                label="Confirm password"
-                value={confirmPassword}
-                onChangeText={(t) => setConfirmPassword(sanitizeAuthPassword(t))}
-                placeholder="Confirm your password"
-                autoCapitalize="none"
-                autoCorrect={false}
-                passwordToggleable
-                maxLength={128}
-              />
-              <LegalAcceptanceRow checked={accepted} onToggle={() => setAccepted((v) => !v)} />
-              {error ? (
-                <Text weight="bold" style={{ color: theme.colors.danger }}>
-                  {error}
-                </Text>
-              ) : null}
-              <Button title={loading ? 'Please wait…' : 'Create account'} disabled={loading || !accepted} onPress={submit} />
-            </View>
-          </Card>
-
-          <Pressable onPress={() => router.replace('/(auth)/sign-in')} style={{ alignItems: 'center' }}>
-            <Text weight="bold" style={{ color: theme.colors.primary }}>
-              Back to login
+          <TextField
+            label="Username"
+            value={username}
+            onChangeText={(t) => setUsername(sanitizeCustomerUsername(t))}
+            placeholder="juan123"
+            autoCapitalize="none"
+            autoCorrect={false}
+            maxLength={20}
+          />
+          <TextField
+            label="Password"
+            value={password}
+            onChangeText={(t) => setPassword(sanitizeAuthPassword(t))}
+            placeholder="Create a password"
+            autoCapitalize="none"
+            autoCorrect={false}
+            passwordToggleable
+            maxLength={128}
+          />
+          <TextField
+            label="Confirm password"
+            value={confirmPassword}
+            onChangeText={(t) => setConfirmPassword(sanitizeAuthPassword(t))}
+            placeholder="Confirm your password"
+            autoCapitalize="none"
+            autoCorrect={false}
+            passwordToggleable
+            maxLength={128}
+          />
+          <LegalAcceptanceRow checked={accepted} onToggle={() => setAccepted((v) => !v)} />
+          {error ? (
+            <Text weight="bold" style={{ color: theme.colors.danger }}>
+              {error}
             </Text>
-          </Pressable>
-        </View>
-      </ScrollView>
-      </KeyboardAvoidingView>
-    </Screen>
+          ) : null}
+          <Button title={loading ? 'Please wait…' : 'Create account'} disabled={loading || !accepted} onPress={submit} />
+      </View>
+    </AuthScreenLayout>
   );
 }
-

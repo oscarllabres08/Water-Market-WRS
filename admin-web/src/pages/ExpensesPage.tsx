@@ -1,8 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { ConfirmModal } from '../components/ConfirmModal';
+import { LaundryPeriodPicker } from '../components/LaundryPeriodPicker';
 import { PageHeader } from '../components/PageHeader';
 import { useAuth } from '../auth/AuthProvider';
+import {
+  ownerDateInputToday,
+  ownerRangeEnd,
+  ownerRangeStart,
+  type OwnerRange,
+} from '../lib/ownerPortalData';
 import {
   EXPENSE_TYPES,
   expenseTypeLabel,
@@ -45,6 +52,9 @@ export function ExpensesPage({ businessUnit = 'wrs' }: { businessUnit?: 'wrs' | 
 
   const [viewDate, setViewDate] = useState(todayDateInputValue);
   const [viewAllDates, setViewAllDates] = useState(false);
+  const [laundryRange, setLaundryRange] = useState<OwnerRange>('today');
+  const [laundryDate, setLaundryDate] = useState(() => ownerDateInputToday());
+  const isLaundry = businessUnit === 'laundry';
 
   const [expenseType, setExpenseType] = useState<ExpenseType>('water_bill');
   const [othersLabel, setOthersLabel] = useState('');
@@ -68,19 +78,28 @@ export function ExpensesPage({ businessUnit = 'wrs' }: { businessUnit?: 'wrs' | 
       .eq('seller_id', businessId)
       .eq('business_unit', businessUnit);
 
-    if (!viewAllDates) {
+    if (isLaundry) {
+      if (laundryRange === 'date' && !laundryDate) {
+        setLoading(false);
+        return;
+      }
+      const periodDate = laundryRange === 'date' ? laundryDate : undefined;
+      const from = ownerRangeStart(laundryRange, new Date(), periodDate).toISOString().slice(0, 10);
+      const to = ownerRangeEnd(laundryRange, new Date(), periodDate).toISOString().slice(0, 10);
+      query = query.gte('expense_date', from).lte('expense_date', to);
+    } else if (!viewAllDates) {
       query = query.eq('expense_date', viewDate);
     }
 
     const { data, error: err } = await query
       .order('expense_date', { ascending: false })
       .order('created_at', { ascending: false })
-      .limit(viewAllDates ? 200 : 100);
+      .limit(isLaundry || !viewAllDates ? 200 : 200);
 
     if (err) setLoadError(err.message);
     setRows((data ?? []) as ExpenseRow[]);
     setLoading(false);
-  }, [businessId, businessUnit, viewAllDates, viewDate]);
+  }, [businessId, businessUnit, viewAllDates, viewDate, isLaundry, laundryRange, laundryDate]);
 
   useEffect(() => {
     void load();
@@ -112,7 +131,21 @@ export function ExpensesPage({ businessUnit = 'wrs' }: { businessUnit?: 'wrs' | 
 
   const dayTotal = useMemo(() => rows.reduce((sum, r) => sum + Number(r.amount), 0), [rows]);
 
-  const listTitle = viewAllDates ? 'All recent expenses' : `Expenses on ${formatExpenseDateLabel(viewDate)}`;
+  const laundryPeriodLabel = useMemo(() => {
+    if (laundryRange === 'today') return 'Today';
+    if (laundryRange === 'week') return 'This week';
+    if (laundryRange === 'month') return 'This month';
+    if (laundryRange === 'year') return 'This year';
+    return formatExpenseDateLabel(laundryDate);
+  }, [laundryRange, laundryDate]);
+
+  const listTitle = isLaundry
+    ? `Expenses — ${laundryPeriodLabel}`
+    : viewAllDates
+      ? 'All recent expenses'
+      : `Expenses on ${formatExpenseDateLabel(viewDate)}`;
+
+  const showExpenseDateColumn = isLaundry ? laundryRange !== 'date' && laundryRange !== 'today' : viewAllDates;
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -144,7 +177,8 @@ export function ExpensesPage({ businessUnit = 'wrs' }: { businessUnit?: 'wrs' | 
       setNotes('');
       setExpenseType('water_bill');
       setExpenseDate(todayDateInputValue());
-      if (!viewAllDates) setViewDate(expenseDate);
+      if (isLaundry) setLaundryRange('date'), setLaundryDate(expenseDate);
+      else if (!viewAllDates) setViewDate(expenseDate);
       await load();
     } catch (ex) {
       setFormError(ex instanceof Error ? ex.message : 'Could not save expense');
@@ -201,7 +235,10 @@ export function ExpensesPage({ businessUnit = 'wrs' }: { businessUnit?: 'wrs' | 
         .select('id');
       if (err) throw err;
       if (!data?.length) throw new Error('Could not update this expense.');
-      if (!viewAllDates) setViewDate(editDraft.expenseDate);
+      if (isLaundry) {
+        setLaundryRange('date');
+        setLaundryDate(editDraft.expenseDate);
+      } else if (!viewAllDates) setViewDate(editDraft.expenseDate);
       setEditDraft(null);
       await load();
     } catch (ex) {
@@ -244,36 +281,52 @@ export function ExpensesPage({ businessUnit = 'wrs' }: { businessUnit?: 'wrs' | 
         description="Pick a date to review costs, then add new entries below. Dashboard net income uses today's sales minus today's expenses."
       />
 
-      <div className="customer-toolbar card card-flat">
-        <label className="customer-search" htmlFor="exp-view-date">
-          <span>Date</span>
-          <input
-            id="exp-view-date"
-            type="date"
-            value={viewDate}
-            disabled={viewAllDates}
-            onChange={(e) => {
-              setViewAllDates(false);
-              setViewDate(e.target.value);
-            }}
+      {isLaundry ? (
+        <div className="card card-flat ly-expenses-toolbar">
+          <LaundryPeriodPicker
+            range={laundryRange}
+            dateInput={laundryDate}
+            onRange={setLaundryRange}
+            onDateInput={setLaundryDate}
+            dateInputId="laundry-expenses-date"
           />
-        </label>
-        <div className="customer-filter-group">
-          <span>Show</span>
-          <div className="customer-pills" role="group" aria-label="Expense date filter">
-            <button type="button" className={`customer-pill${isViewingToday ? ' active' : ''}`} onClick={showToday}>
-              Today
-            </button>
-            <button type="button" className={`customer-pill${viewAllDates ? ' active' : ''}`} onClick={() => setViewAllDates(true)}>
-              All dates
-            </button>
+          <div className="expenses-totals ly-expenses-totals">
+            <span>{loading ? '…' : rows.length} entries</span>
+            <strong>{loading ? '…' : money(dayTotal)}</strong>
           </div>
         </div>
-        <div className="expenses-totals">
-          <span>{loading ? '…' : rows.length} entries</span>
-          <strong>{loading ? '…' : money(dayTotal)}</strong>
+      ) : (
+        <div className="customer-toolbar card card-flat">
+          <label className="customer-search" htmlFor="exp-view-date">
+            <span>Date</span>
+            <input
+              id="exp-view-date"
+              type="date"
+              value={viewDate}
+              disabled={viewAllDates}
+              onChange={(e) => {
+                setViewAllDates(false);
+                setViewDate(e.target.value);
+              }}
+            />
+          </label>
+          <div className="customer-filter-group">
+            <span>Show</span>
+            <div className="customer-pills" role="group" aria-label="Expense date filter">
+              <button type="button" className={`customer-pill${isViewingToday ? ' active' : ''}`} onClick={showToday}>
+                Today
+              </button>
+              <button type="button" className={`customer-pill${viewAllDates ? ' active' : ''}`} onClick={() => setViewAllDates(true)}>
+                All dates
+              </button>
+            </div>
+          </div>
+          <div className="expenses-totals">
+            <span>{loading ? '…' : rows.length} entries</span>
+            <strong>{loading ? '…' : money(dayTotal)}</strong>
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="expenses-board">
       <div className="card card-flat expenses-form-card">
@@ -346,7 +399,11 @@ export function ExpensesPage({ businessUnit = 'wrs' }: { businessUnit?: 'wrs' | 
         {loading ? <p className="muted-block">Loading…</p> : null}
         {!loading && rows.length === 0 ? (
           <p className="muted-block">
-            {viewAllDates ? 'No expenses recorded yet.' : `No expenses on ${formatExpenseDateLabel(viewDate)}.`}
+            {isLaundry
+              ? `No expenses for ${laundryPeriodLabel.toLowerCase()}.`
+              : viewAllDates
+                ? 'No expenses recorded yet.'
+                : `No expenses on ${formatExpenseDateLabel(viewDate)}.`}
           </p>
         ) : null}
         {!loading && rows.length > 0 ? (
@@ -354,7 +411,7 @@ export function ExpensesPage({ businessUnit = 'wrs' }: { businessUnit?: 'wrs' | 
             <table className="data-table expenses-table">
               <thead>
                 <tr>
-                  {viewAllDates ? <th>Date</th> : null}
+                  {showExpenseDateColumn ? <th>Date</th> : null}
                   <th>Type</th>
                   <th>Amount</th>
                   <th>Notes</th>
@@ -364,7 +421,7 @@ export function ExpensesPage({ businessUnit = 'wrs' }: { businessUnit?: 'wrs' | 
               <tbody>
                 {rows.map((r) => (
                   <tr key={r.id}>
-                    {viewAllDates ? <td>{formatExpenseDateLabel(r.expense_date)}</td> : null}
+                    {showExpenseDateColumn ? <td>{formatExpenseDateLabel(r.expense_date)}</td> : null}
                     <td>{expenseTypeLabel(r.expense_type, r.others_label)}</td>
                     <td>{money(Number(r.amount))}</td>
                     <td>{r.notes?.trim() || '—'}</td>

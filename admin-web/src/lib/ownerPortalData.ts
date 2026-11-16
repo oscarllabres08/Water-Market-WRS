@@ -388,7 +388,7 @@ export async function fetchOwnerTotals(businessId: string, fromIso: string, toIs
     .gte('pos_sales.created_at', fromIso);
   let orderQuery = supabase
     .from('order_items')
-    .select('unit_price,quantity,products(category),orders!inner(created_at,seller_id,status,order_source)')
+    .select('unit_price,quantity,products(category),orders!inner(created_at,seller_id,status)')
     .eq('orders.seller_id', businessId)
     .neq('orders.status', 'cancelled')
     .gte('orders.created_at', fromIso);
@@ -414,8 +414,6 @@ export async function fetchOwnerTotals(businessId: string, fromIso: string, toIs
     else next.water += amount;
   }
   for (const row of orderRes.data ?? []) {
-    const order = row.orders as { order_source?: string | null };
-    if (order?.order_source === 'pos') continue;
     const amount = Number(row.unit_price) * Number(row.quantity);
     if (categoryOf(row.products as { category: string } | { category: string }[] | null) === 'ice') next.ice += amount;
     else next.water += amount;
@@ -457,7 +455,7 @@ export async function fetchOwnerStaffCounts(businessId: string) {
       .select('user_id,seller_team_role,seller_join_status,signup_channel')
       .eq('seller_workspace_owner_id', businessId)
       .eq('seller_team_role', 'staff'),
-    supabase.from('user_business_roles').select('user_id,business_id'),
+    supabase.from('user_business_roles').select('user_id,business_id').eq('business_id', 'laundry'),
   ]);
   const rows = staffRes.data ?? [];
   const active = rows.filter((r) => r.seller_join_status === 'approved');
@@ -484,14 +482,14 @@ export async function fetchOwnerRecentSales(businessId: string, limit = 8): Prom
       .limit(limit),
     supabase
       .from('orders')
-      .select('id,created_at,customer_name,order_source,order_items(product_name,quantity,unit_price,products(category))')
+      .select('id,created_at,customer_name,order_items(product_name,quantity,unit_price,products(category))')
       .eq('seller_id', businessId)
       .neq('status', 'cancelled')
       .order('created_at', { ascending: false })
       .limit(limit),
     supabase
       .from('laundry_sales')
-      .select('id,created_at,customer_name,total_amount,laundry_sale_items(service_name,quantity)')
+      .select('id,created_at,customer_name,total_amount')
       .eq('seller_id', businessId)
       .order('created_at', { ascending: false })
       .limit(limit),
@@ -515,7 +513,6 @@ export async function fetchOwnerRecentSales(businessId: string, limit = 8): Prom
   }
 
   for (const order of orderRes.data ?? []) {
-    if (order.order_source === 'pos') continue;
     const items = order.order_items ?? [];
     const amount = items.reduce((sum, item) => sum + Number(item.unit_price) * Number(item.quantity), 0);
     const hasIce = items.some((item) => categoryOf(item.products as { category: string } | { category: string }[] | null) === 'ice');
@@ -534,8 +531,7 @@ export async function fetchOwnerRecentSales(businessId: string, limit = 8): Prom
       id: `laundry:${sale.id}`,
       at: sale.created_at,
       business: 'Laundry',
-      productLabel:
-        (sale.laundry_sale_items ?? []).map((item) => `${item.quantity} × ${item.service_name}`).join(', ') || 'Laundry sale',
+      productLabel: 'Laundry sale',
       customerName: sale.customer_name?.trim() || 'Customer',
       amount: Number(sale.total_amount),
     });
@@ -581,7 +577,7 @@ export async function fetchOwnerTimeline(businessId: string, range: OwnerRange, 
       .lte('pos_sales.created_at', toIso),
     supabase
       .from('order_items')
-      .select('unit_price,quantity,products(category),orders!inner(created_at,seller_id,status,order_source)')
+      .select('unit_price,quantity,products(category),orders!inner(created_at,seller_id,status)')
       .eq('orders.seller_id', businessId)
       .neq('orders.status', 'cancelled')
       .gte('orders.created_at', fromIso)
@@ -603,8 +599,7 @@ export async function fetchOwnerTimeline(businessId: string, range: OwnerRange, 
     addSale(sale.created_at, amount, ice ? 'ice' : 'water');
   }
   for (const row of orderRes.data ?? []) {
-    const order = row.orders as unknown as { created_at: string; order_source?: string | null };
-    if (order.order_source === 'pos') continue;
+    const order = row.orders as unknown as { created_at: string };
     const amount = Number(row.unit_price) * Number(row.quantity);
     const ice = categoryOf(row.products as { category: string } | { category: string }[] | null) === 'ice';
     addSale(order.created_at, amount, ice ? 'ice' : 'water');
@@ -697,7 +692,7 @@ export async function fetchTopCustomers(
   const [orders, pos] = await Promise.all([
     supabase
       .from('orders')
-      .select('customer_name,order_items(unit_price,quantity,products(category)),order_source,created_at')
+      .select('customer_name,order_items(unit_price,quantity,products(category)),created_at')
       .eq('seller_id', businessId)
       .gte('created_at', fromIso)
       .neq('status', 'cancelled'),
@@ -709,7 +704,6 @@ export async function fetchTopCustomers(
   ]);
 
   for (const order of orders.data ?? []) {
-    if (order.order_source === 'pos') continue;
     const amount = (order.order_items ?? []).reduce(
       (sum, item) =>
         sum +

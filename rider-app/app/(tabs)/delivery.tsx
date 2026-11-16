@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Linking, Modal, Pressable, RefreshControl, TextInput, View } from 'react-native';
+import { Alert, Linking, Modal, Pressable, RefreshControl, ScrollView, TextInput, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
@@ -18,6 +19,33 @@ import { formatSourceReference } from '../../lib/sourceReference';
 import { theme } from '../../ui/theme';
 
 type DeliveryFilter = 'for_delivery' | 'delivered';
+
+type BatchStatusKey = 'pending' | 'confirmed' | 'preparing' | 'on_the_way' | 'delivered';
+
+const BATCH_STATUS_OPTIONS: Array<{ key: BatchStatusKey; label: string }> = [
+  { key: 'pending', label: 'Pending' },
+  { key: 'confirmed', label: 'Confirmed' },
+  { key: 'preparing', label: 'Preparing' },
+  { key: 'on_the_way', label: 'On the way' },
+  { key: 'delivered', label: 'Delivered' },
+];
+
+function batchStatusIcon(key: BatchStatusKey): keyof typeof Ionicons.glyphMap {
+  switch (key) {
+    case 'pending':
+      return 'time-outline';
+    case 'confirmed':
+      return 'checkmark-circle-outline';
+    case 'preparing':
+      return 'sync-outline';
+    case 'on_the_way':
+      return 'navigate-outline';
+    case 'delivered':
+      return 'checkmark-done-outline';
+    default:
+      return 'ellipse-outline';
+  }
+}
 
 type Item = { name: string; quantity: number };
 
@@ -77,6 +105,15 @@ function itemsLine(stop: Stop) {
   return stop.items.map((item) => `${item.quantity} ${item.name}`).join(' · ');
 }
 
+function dbStatusForStop(stop: Stop, statusKey: BatchStatusKey): string | null {
+  if (stop.sourceKind === 'order') return statusKey;
+  if (statusKey === 'pending') return 'pending';
+  if (statusKey === 'confirmed' || statusKey === 'preparing') return 'confirmed';
+  if (statusKey === 'on_the_way') return 'in_progress';
+  if (statusKey === 'delivered') return 'completed';
+  return null;
+}
+
 function openMaps(stop: Stop, origin: { lat: number; lng: number } | null) {
   const destination =
     stop.latitude != null && stop.longitude != null
@@ -103,6 +140,9 @@ export default function DeliveryScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [batchBusy, setBatchBusy] = useState(false);
+  const [batchStatus, setBatchStatus] = useState<BatchStatusKey | null>(null);
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(() => new Set());
   const [laundryDetail, setLaundryDetail] = useState<Stop | null>(null);
   const loadRef = useRef<() => Promise<void>>(async () => {});
 
@@ -302,18 +342,40 @@ export default function DeliveryScreen() {
     return true;
   });
 
-  async function updateDelivery(stop: Stop, action: 'start' | 'deliver') {
-    setBusyId(stop.key);
-    setError(null);
+  const selectionMode = filter === 'for_delivery';
+  const selectedStops = useMemo(
+    () => visible.filter((stop) => selectedKeys.has(stop.key)),
+    [visible, selectedKeys]
+  );
+  useEffect(() => {
+    if (filter !== 'for_delivery') {
+      setSelectedKeys(new Set());
+      setBatchStatus(null);
+    }
+  }, [filter]);
+
+  function toggleSelected(key: string) {
+    setSelectedKeys((current) => {
+      const next = new Set(current);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  function selectAllVisible() {
+    setSelectedKeys(new Set(visible.map((stop) => stop.key)));
+  }
+
+  function clearSelection() {
+    setSelectedKeys(new Set());
+    setBatchStatus(null);
+  }
+
+  async function applyDeliveryUpdate(stop: Stop, action: 'start' | 'deliver'): Promise<string | null> {
     if (stop.jobId && stop.assignedToMe) {
       const { error: err } = await supabase.rpc('rider_update_delivery', { p_job_id: stop.jobId, p_action: action });
-      setBusyId(null);
-      if (err) {
-        setError(err.message);
-        return;
-      }
-      await load();
-      return;
+      return err?.message ?? null;
     }
     const next =
       stop.sourceKind === 'laundry'
@@ -327,9 +389,80 @@ export default function DeliveryScreen() {
       stop.sourceKind === 'laundry'
         ? await supabase.from('laundry_bookings').update({ status: next }).eq('id', stop.sourceId)
         : await supabase.from('orders').update({ status: next }).eq('id', stop.sourceId);
+    return err?.message ?? null;
+  }
+
+  async function setStopStatus(stop: Stop, statusKey: BatchStatusKey): Promise<string | null> {
+    const next = dbStatusForStop(stop, statusKey);
+    if (!next) return `${stop.code}: Status not supported for this type.`;
+
+    if (stop.jobId && stop.assignedToMe) {
+      if (statusKey === 'on_the_way') {
+        if (stop.status === 'for_delivery') {
+          const err = await applyDeliveryUpdate(stop, 'start');
+          if (!err) return null;
+        } else if (stop.status === 'in_transit') {
+          return null;
+        }
+      }
+      if (statusKey === 'delivered') {
+        if (stop.status === 'for_delivery') {
+          const startErr = await applyDeliveryUpdate(stop, 'start');
+          if (startErr) return `${stop.code}: ${startErr}`;
+        }
+        if (stop.status !== 'delivered') {
+          const err = await applyDeliveryUpdate(stop, 'deliver');
+          if (!err) return null;
+        } else {
+          return null;
+        }
+      }
+    }
+
+    const { error: err } =
+      stop.sourceKind === 'laundry'
+        ? await supabase.from('laundry_bookings').update({ status: next }).eq('id', stop.sourceId)
+        : await supabase.from('orders').update({ status: next }).eq('id', stop.sourceId);
+    return err ? `${stop.code}: ${err.message}` : null;
+  }
+
+  async function batchApplyStatus(statusKey: BatchStatusKey, label: string) {
+    const targets = [...selectedStops];
+    if (!targets.length) return;
+    setBatchBusy(true);
+    setError(null);
+    const failures: string[] = [];
+    for (const stop of targets) {
+      const err = await setStopStatus(stop, statusKey);
+      if (err) failures.push(err);
+    }
+    setBatchBusy(false);
+    clearSelection();
+    await load();
+    if (failures.length) {
+      setError(`Updated ${targets.length - failures.length} of ${targets.length}. ${failures.slice(0, 2).join(' · ')}`);
+    } else {
+      Alert.alert('Status updated', `Set ${targets.length} ${targets.length === 1 ? 'order' : 'orders'} to ${label}.`);
+    }
+  }
+
+  function confirmBatchStatus() {
+    if (!batchStatus || !selectedStops.length) return;
+    const option = BATCH_STATUS_OPTIONS.find((row) => row.key === batchStatus);
+    const label = option?.label ?? batchStatus;
+    Alert.alert('Change status', `Set ${selectedStops.length} selected to “${label}”?`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Update', onPress: () => void batchApplyStatus(batchStatus, label) },
+    ]);
+  }
+
+  async function updateDelivery(stop: Stop, action: 'start' | 'deliver') {
+    setBusyId(stop.key);
+    setError(null);
+    const err = await applyDeliveryUpdate(stop, action);
     setBusyId(null);
     if (err) {
-      setError(err.message);
+      setError(err);
       return;
     }
     await load();
@@ -349,7 +482,7 @@ export default function DeliveryScreen() {
     <Screen>
       <KeyboardAwareScrollView
         offset={72}
-        contentContainerStyle={{ paddingBottom: 120, gap: 8 }}
+        contentContainerStyle={{ paddingBottom: selectionMode && selectedStops.length > 0 ? 118 : 120, gap: 8 }}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -414,6 +547,19 @@ export default function DeliveryScreen() {
           />
         </View>
 
+        {selectionMode && visible.length > 0 ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+            <Text variant="muted" weight="semibold" style={{ fontSize: 12, flex: 1 }}>
+              Select orders, then update status together.
+            </Text>
+            <Pressable onPress={selectedStops.length === visible.length ? clearSelection : selectAllVisible} hitSlop={8}>
+              <Text weight="semibold" style={{ fontSize: 12, color: theme.colors.primary }}>
+                {selectedStops.length === visible.length && visible.length > 0 ? 'Clear all' : 'Select all'}
+              </Text>
+            </Pressable>
+          </View>
+        ) : null}
+
         {loading ? <Text variant="muted">Loading your deliveries…</Text> : null}
         {!loading && visible.length === 0 ? (
           <Text variant="muted" weight="semibold">
@@ -422,9 +568,27 @@ export default function DeliveryScreen() {
         ) : null}
 
         {visible.map((stop) => (
-          <DeliveryCard key={stop.key} stop={stop} onViewDetails={() => openDetails(stop)} />
+          <DeliveryCard
+            key={stop.key}
+            stop={stop}
+            selectable={selectionMode}
+            selected={selectedKeys.has(stop.key)}
+            onToggleSelect={() => toggleSelected(stop.key)}
+            onViewDetails={() => openDetails(stop)}
+          />
         ))}
       </KeyboardAwareScrollView>
+
+      {selectionMode && selectedStops.length > 0 ? (
+        <DeliveryBatchStatusBar
+          count={selectedStops.length}
+          status={batchStatus}
+          busy={batchBusy}
+          onSelectStatus={setBatchStatus}
+          onClear={clearSelection}
+          onApply={confirmBatchStatus}
+        />
+      ) : null}
 
       <Modal visible={!!modalStop} transparent animationType="fade" onRequestClose={() => setLaundryDetail(null)}>
         <Pressable
@@ -445,24 +609,18 @@ export default function DeliveryScreen() {
                 </Text>
                 <Text variant="muted">{modalStop.address || 'No address'}</Text>
                 <Text variant="muted">{itemsLine(modalStop)}</Text>
-                <Pressable
-                  onPress={() => openMaps(modalStop, storeCoords)}
-                  style={{
-                    height: 44,
-                    borderRadius: 12,
-                    borderWidth: 1.5,
-                    borderColor: theme.colors.primary,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexDirection: 'row',
-                    gap: 8,
-                  }}
-                >
-                  <Ionicons name="map-outline" size={18} color={theme.colors.primary} />
-                  <Text weight="extrabold" style={{ color: theme.colors.primary }}>
-                    Open in Maps
-                  </Text>
-                </Pressable>
+                <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
+                  <View style={{ flex: 1 }}>
+                    <Button
+                      title="Open in Maps"
+                      leadingIcon={<Ionicons name="map-outline" size={18} color={theme.colors.onPrimary} />}
+                      onPress={() => openMaps(modalStop, storeCoords)}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Button variant="ghost" title="Close" onPress={() => setLaundryDetail(null)} />
+                  </View>
+                </View>
                 {modalStop.status === 'for_delivery' ? (
                   <Button
                     title="Start delivery"
@@ -477,17 +635,164 @@ export default function DeliveryScreen() {
                     onPress={() => void updateDelivery(modalStop, 'deliver').then(() => setLaundryDetail(null))}
                   />
                 ) : null}
-                <Pressable onPress={() => setLaundryDetail(null)} style={{ alignSelf: 'flex-end' }}>
-                  <Text weight="extrabold" style={{ color: theme.colors.primary }}>
-                    Close
-                  </Text>
-                </Pressable>
               </Card>
             ) : null}
           </Pressable>
         </Pressable>
       </Modal>
     </Screen>
+  );
+}
+
+function DeliveryBatchStatusBar({
+  count,
+  status,
+  busy,
+  onSelectStatus,
+  onClear,
+  onApply,
+}: {
+  count: number;
+  status: BatchStatusKey | null;
+  busy: boolean;
+  onSelectStatus: (key: BatchStatusKey) => void;
+  onClear: () => void;
+  onApply: () => void;
+}) {
+  const insets = useSafeAreaInsets();
+  const ready = !!status && !busy;
+
+  function handleApplyPress() {
+    if (busy) return;
+    if (!status) {
+      Alert.alert('Choose a status', 'Tap Pending, Confirmed, or another status in the row below, then tap Apply.');
+      return;
+    }
+    onApply();
+  }
+
+  return (
+    <View
+      pointerEvents="box-none"
+      style={{
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        bottom: 0,
+        zIndex: 40,
+        elevation: 40,
+        paddingHorizontal: theme.spacing.md,
+        paddingBottom: Math.max(insets.bottom, 8),
+      }}
+    >
+      <View
+        style={{
+          width: '100%',
+          maxWidth: 720,
+          alignSelf: 'center',
+          paddingHorizontal: 12,
+          paddingTop: 10,
+          paddingBottom: 10,
+          borderRadius: 18,
+          borderWidth: 1,
+          borderColor: 'rgba(0,114,240,0.1)',
+          backgroundColor: 'rgba(255,255,255,0.98)',
+          gap: 8,
+          shadowColor: '#0B1B3A',
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.08,
+          shadowRadius: 12,
+        }}
+      >
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
+            <View
+              style={{
+                minWidth: 30,
+                height: 30,
+                paddingHorizontal: 8,
+                borderRadius: 10,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: 'rgba(0,114,240,0.08)',
+              }}
+            >
+              <Text weight="semibold" style={{ fontSize: 14, color: theme.colors.primary }}>
+                {count}
+              </Text>
+            </View>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text weight="semibold" style={{ fontSize: 14, lineHeight: 17 }} numberOfLines={1}>
+                Update status
+              </Text>
+              <Text variant="muted" style={{ fontSize: 11, lineHeight: 14 }} numberOfLines={1}>
+                {count === 1 ? '1 selected' : `${count} selected`}
+              </Text>
+            </View>
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Pressable
+              onPress={handleApplyPress}
+              hitSlop={6}
+              style={{
+                paddingVertical: 8,
+                paddingHorizontal: 12,
+                borderRadius: 12,
+                backgroundColor: ready ? theme.colors.primary : '#E4EDF8',
+              }}
+            >
+              <Text weight="semibold" style={{ fontSize: 13, color: ready ? theme.colors.onPrimary : '#8AA0BB' }}>
+                {busy ? '…' : 'Apply'}
+              </Text>
+            </Pressable>
+            <Pressable onPress={onClear} hitSlop={8} style={{ paddingVertical: 8, paddingHorizontal: 6 }}>
+              <Text variant="muted" weight="semibold" style={{ fontSize: 12 }}>
+                Clear
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          nestedScrollEnabled
+          style={{ flexGrow: 0, marginHorizontal: -2 }}
+          contentContainerStyle={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 2, paddingHorizontal: 2 }}
+        >
+          {BATCH_STATUS_OPTIONS.map((option) => {
+            const active = status === option.key;
+            const iconColor = active ? theme.colors.primary : '#7A92B0';
+            return (
+              <Pressable
+                key={option.key}
+                onPress={() => onSelectStatus(option.key)}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 5,
+                  paddingVertical: 6,
+                  paddingHorizontal: 10,
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  borderColor: active ? 'rgba(0,114,240,0.35)' : 'rgba(138,160,187,0.28)',
+                  backgroundColor: active ? '#FFFFFF' : 'rgba(246,250,254,0.95)',
+                }}
+              >
+                <Ionicons name={batchStatusIcon(option.key)} size={13} color={iconColor} />
+                <Text
+                  weight={active ? 'semibold' : 'regular'}
+                  style={{ fontSize: 12, lineHeight: 15, color: active ? theme.colors.primary : theme.colors.text }}
+                >
+                  {option.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      </View>
+    </View>
   );
 }
 
@@ -522,7 +827,19 @@ function DeliveryFilterChip({ label, active, onPress }: { label: string; active:
   );
 }
 
-function DeliveryCard({ stop, onViewDetails }: { stop: Stop; onViewDetails: () => void }) {
+function DeliveryCard({
+  stop,
+  selectable,
+  selected,
+  onToggleSelect,
+  onViewDetails,
+}: {
+  stop: Stop;
+  selectable?: boolean;
+  selected?: boolean;
+  onToggleSelect?: () => void;
+  onViewDetails: () => void;
+}) {
   const meta = categoryMeta(stop.category);
   const badge = statusBadgeMeta(stop.status);
   const place = stop.address.trim() || 'No address';
@@ -557,6 +874,26 @@ function DeliveryCard({ stop, onViewDetails }: { stop: Stop; onViewDetails: () =
       ) : null}
 
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingRight: stop.fresh ? 44 : 0 }}>
+        {selectable ? (
+          <Pressable
+            onPress={onToggleSelect}
+            hitSlop={6}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: !!selected }}
+            style={{
+              width: 22,
+              height: 22,
+              borderRadius: 6,
+              borderWidth: 2,
+              borderColor: selected ? theme.colors.primary : theme.colors.border,
+              backgroundColor: selected ? theme.colors.primary : '#FFFFFF',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            {selected ? <Ionicons name="checkmark" size={14} color="#FFFFFF" /> : null}
+          </Pressable>
+        ) : null}
         <View
           style={{
             paddingVertical: 2,

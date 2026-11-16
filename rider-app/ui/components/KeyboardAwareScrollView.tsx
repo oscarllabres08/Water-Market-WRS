@@ -14,11 +14,14 @@ export function KeyboardAwareScrollView({ children, offset = 8, contentContainer
       keyboardVerticalOffset={Platform.OS === 'ios' ? offset : 0}
     >
       <ScrollView
+        scrollEnabled
+        nestedScrollEnabled
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
         automaticallyAdjustKeyboardInsets
         contentInsetAdjustmentBehavior="automatic"
         {...rest}
-        contentContainerStyle={contentContainerStyle}
+        contentContainerStyle={[{ paddingBottom: 32 }, contentContainerStyle]}
       >
         {children}
       </ScrollView>

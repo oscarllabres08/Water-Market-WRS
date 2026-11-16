@@ -129,6 +129,15 @@ export function PosPage() {
   const addedNoteTimer = useRef<number | null>(null);
   const skipDraftSave = useRef(true);
   const cartRef = useRef<HTMLElement | null>(null);
+  const [cartVisible, setCartVisible] = useState(false);
+
+  useEffect(() => {
+    const node = cartRef.current;
+    if (!node) return;
+    const observer = new IntersectionObserver(([entry]) => setCartVisible(entry.isIntersecting), { threshold: 0.2 });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
 
   const loadProducts = useCallback(async () => {
     if (!businessId) {
@@ -591,6 +600,7 @@ export function PosPage() {
                         {p.category === 'ice' ? <IceIcon /> : p.category === 'other' ? <BoxIcon /> : <DropIcon />}
                       </span>
                     )}
+                    {inOrder > 0 ? <span className="pos-added-chip">{inOrder}</span> : null}
                   </div>
                   <div className="pos-product-top">
                     <span className={`pos-product-glyph pos-product-glyph--${p.category}`} aria-hidden>
@@ -603,21 +613,10 @@ export function PosPage() {
                   <p className={`pos-stock${isLowStock(p.stock_quantity) ? ' pos-stock--low' : ''}`}>
                     {tracksStock(p.category) && p.stock_quantity != null ? stockLabel(p.stock_quantity) : 'In stock'}
                   </p>
-                  <span className="pos-add-btn">{inOrder > 0 ? `Added · ${inOrder}` : 'Add to cart'}</span>
                 </article>
               );
             })}
           </div>
-          <button
-            type="button"
-            className="pos-view-order"
-            onClick={() => cartRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-          >
-            View order
-            <span>
-              {cartCount} {cartCount === 1 ? 'item' : 'items'} · {money(cartTotal)}
-            </span>
-          </button>
         </section>
 
         <aside id="pos-cart" ref={cartRef} className="pos-cart card card-flat">
@@ -897,6 +896,18 @@ export function PosPage() {
           </div>
         </aside>
       </div>
+      {cartCount > 0 && !cartVisible ? (
+        <button
+          type="button"
+          className="pos-view-order"
+          onClick={() => cartRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+        >
+          Go to order
+          <span>
+            {cartCount} {cartCount === 1 ? 'item' : 'items'} · {money(cartTotal)}
+          </span>
+        </button>
+      ) : null}
     </div>
   );
 }

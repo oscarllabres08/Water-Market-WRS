@@ -6,14 +6,36 @@ import { theme } from '../theme';
 
 type ScreenProps = PropsWithChildren<
   ViewProps & {
+    backgroundColor?: string;
     safeAreaEdges?: Edge[];
   }
 >;
 
-export function Screen({ children, style, safeAreaEdges, ...rest }: ScreenProps) {
+export function Screen({ children, style, backgroundColor, safeAreaEdges, ...rest }: ScreenProps) {
   const edges = safeAreaEdges ?? (['top', 'left', 'right'] as Edge[]);
+  const frame = (
+    <View style={{ flex: 1, alignItems: 'center' }}>
+      <View
+        {...rest}
+        style={[
+          {
+            flex: 1,
+            width: '100%',
+            maxWidth: 720,
+            padding: theme.spacing.md,
+          },
+          style,
+        ]}
+      >
+        {children}
+      </View>
+    </View>
+  );
   return (
-    <SafeAreaView edges={edges} style={{ flex: 1, backgroundColor: theme.colors.bg }}>
+    <SafeAreaView edges={edges} style={{ flex: 1, backgroundColor: backgroundColor ?? theme.colors.bg }}>
+      {backgroundColor ? (
+        frame
+      ) : (
       <LinearGradient
         colors={[theme.colors.bgSoft, theme.colors.bg, theme.colors.bgTint]}
         locations={[0, 0.45, 1]}
@@ -21,23 +43,9 @@ export function Screen({ children, style, safeAreaEdges, ...rest }: ScreenProps)
         end={{ x: 1, y: 1 }}
         style={{ flex: 1 }}
       >
-        <View style={{ flex: 1, alignItems: 'center' }}>
-          <View
-            {...rest}
-            style={[
-              {
-                flex: 1,
-                width: '100%',
-                maxWidth: 720,
-                padding: theme.spacing.md,
-              },
-              style,
-            ]}
-          >
-            {children}
-          </View>
-        </View>
+        {frame}
       </LinearGradient>
+      )}
     </SafeAreaView>
   );
 }

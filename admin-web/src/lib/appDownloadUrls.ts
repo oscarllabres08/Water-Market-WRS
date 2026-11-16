@@ -13,8 +13,6 @@ export function customerApkDownloadUrl(): string {
   return '/downloads/customer-app.apk';
 }
 
-export function riderApkDownloadUrl(): string {
-  const override = trimUrl(import.meta.env.VITE_RIDER_APK_URL);
-  if (override) return override;
-  return '/downloads/rider-app.apk';
+export function riderApkDownloadUrl(ticket: string): string {
+  return `/downloads/rider-app.apk?t=${encodeURIComponent(ticket)}`;
 }

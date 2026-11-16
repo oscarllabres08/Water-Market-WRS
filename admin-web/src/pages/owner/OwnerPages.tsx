@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNo
 import { Link, Outlet, useLocation, useSearchParams } from 'react-router-dom';
 
 import { useAuth } from '../../auth/AuthProvider';
+import { LaundryPeriodPicker } from '../../components/LaundryPeriodPicker';
 import { PasswordInput } from '../../components/PasswordInput';
 import { SettingsSection } from '../../components/SettingsSection';
 import { StaffAvatar } from '../../components/StaffAvatar';
@@ -50,14 +51,6 @@ const NAV = [
   { to: '/overall-sales/staff', label: 'Users & Staff', shortLabel: 'Users', icon: 'customers' as const },
 ];
 
-const RANGE_OPTIONS: { id: OwnerRange; label: string }[] = [
-  { id: 'today', label: 'Today' },
-  { id: 'date', label: 'Specific date' },
-  { id: 'week', label: 'This Week' },
-  { id: 'month', label: 'This Month' },
-  { id: 'year', label: 'This Year' },
-];
-
 type BusinessFilter = OwnerBusinessKey;
 type ChartFilter = BusinessFilter | 'all';
 
@@ -96,40 +89,6 @@ function OwnerSettingsToggle({
         <span className="loyalty-toggle-track" aria-hidden />
         <span className="loyalty-toggle-label">{checked ? 'On' : 'Off'}</span>
       </label>
-    </div>
-  );
-}
-
-function OwnerRangePicker({
-  range,
-  dateInput,
-  onChange,
-  onDateInput,
-}: {
-  range: OwnerRange;
-  dateInput: string;
-  onChange: (range: OwnerRange) => void;
-  onDateInput: (value: string) => void;
-}) {
-  return (
-    <div className="owner-toolbar-picker owner-toolbar-picker--range">
-      <select className="owner-select" value={range} onChange={(e) => onChange(e.target.value as OwnerRange)} aria-label="Period">
-        {RANGE_OPTIONS.map((option) => (
-          <option key={option.id} value={option.id}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-      {range === 'date' ? (
-        <input
-          type="date"
-          className="owner-select owner-date-input"
-          value={dateInput}
-          max={ownerDateInputToday()}
-          onChange={(e) => onDateInput(e.target.value)}
-          aria-label="Choose date"
-        />
-      ) : null}
     </div>
   );
 }
@@ -425,7 +384,14 @@ export function OwnerDashboardPage() {
         title="Overview"
         subtitle="Your businesses in one place — water refilling, ice cubes, and laundry."
         aside={
-          <OwnerRangePicker range={range} dateInput={dateInput} onChange={setRange} onDateInput={setDateInput} />
+          <LaundryPeriodPicker
+            range={range}
+            dateInput={dateInput}
+            onRange={setRange}
+            onDateInput={setDateInput}
+            dateInputId="owner-overview-date"
+            className="owner-period-picker"
+          />
         }
       />
       {period.error ? <p className="error-text">{period.error}</p> : null}
@@ -483,7 +449,7 @@ export function OwnerDashboardPage() {
                   <span className={`owner-biz-pill is-${row.business === 'Ice Cubes' ? 'ice' : row.business === 'Laundry' ? 'laundry' : 'water'}`}>
                     {row.business}
                   </span>
-                  <strong>{row.productLabel}</strong>
+                  <span className="owner-recent-product">{row.productLabel}</span>
                   <span className="muted-block">
                     {row.customerName} · {new Date(row.at).toLocaleString()}
                   </span>
@@ -547,23 +513,16 @@ export function OwnerSalesPage() {
         title="Sales Report & Analytics"
         subtitle="Gross income, expenses, and net income per business — then drill into each line."
         aside={
-          <OwnerRangePicker range={range} dateInput={dateInput} onChange={setRange} onDateInput={setDateInput} />
+          <LaundryPeriodPicker
+            range={range}
+            dateInput={dateInput}
+            onRange={setRange}
+            onDateInput={setDateInput}
+            dateInputId="owner-sales-date"
+            className="owner-period-picker"
+          />
         }
       />
-      <div className="owner-sales-toolbar owner-sales-toolbar--period">
-        <div className="pos-category-tabs owner-period-tabs" role="tablist">
-          {RANGE_OPTIONS.map((option) => (
-            <button
-              key={option.id}
-              type="button"
-              className={`pos-category-tab${range === option.id ? ' active' : ''}`}
-              onClick={() => setRange(option.id)}
-            >
-              {option.label.replace('This ', '')}
-            </button>
-          ))}
-        </div>
-      </div>
       {period.error ? <p className="error-text module-alert">{period.error}</p> : null}
       <section className="owner-business-grid owner-income-grid">
         {businessRows.map((row) => (
@@ -714,7 +673,14 @@ export function OwnerExpensesPage() {
         title="Overall Expenses"
         subtitle="Track spending across water station and laundry."
         aside={
-          <OwnerRangePicker range={range} dateInput={dateInput} onChange={setRange} onDateInput={setDateInput} />
+          <LaundryPeriodPicker
+            range={range}
+            dateInput={dateInput}
+            onRange={setRange}
+            onDateInput={setDateInput}
+            dateInputId="owner-expenses-date"
+            className="owner-period-picker"
+          />
         }
       />
       <div className="owner-expenses-toolbar">
@@ -1220,6 +1186,28 @@ export function OwnerSettingsPage() {
             : 'Alerts and sound for store activity across businesses.'
         }
       />
+
+      <nav className="owner-settings-tabs" role="tablist" aria-label="Settings sections">
+        <Link
+          to="/overall-sales/settings?section=account"
+          className={`owner-settings-tab${section === 'account' ? ' is-active' : ''}`}
+          role="tab"
+          aria-selected={section === 'account'}
+        >
+          Account
+        </Link>
+        <Link
+          to="/overall-sales/settings?section=notifications"
+          className={`owner-settings-tab${section === 'notifications' ? ' is-active' : ''}`}
+          role="tab"
+          aria-selected={section === 'notifications'}
+        >
+          Notifications
+        </Link>
+      </nav>
+      <p className="owner-settings-active-label muted-block">
+        {section === 'account' ? 'Manage your sign-in password.' : 'Choose how alerts appear on this device.'}
+      </p>
 
       {section === 'account' ? (
         <SettingsSection

@@ -53,7 +53,7 @@ export default function LegalWelcomeScreen() {
         <View style={{ alignItems: 'center', marginBottom: theme.spacing.sm }}>
           <Image
             source={authLogo}
-            style={{ width: 280, height: 168 }}
+            style={{ width: 200, height: 200 }}
             resizeMode="contain"
             accessibilityLabel="WaterMarket"
             accessibilityIgnoresInvertColors

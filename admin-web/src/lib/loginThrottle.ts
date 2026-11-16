@@ -1,6 +1,6 @@
 const MAX_FAILS = 5;
 const LOCK_MS = 5 * 60 * 1000;
-const KEY = 'wm-portal-login-guard';
+const KEY = 'wm-portal-login-guard-v2';
 
 type Guard = { fails: number; until: number };
 
@@ -49,7 +49,13 @@ export function clearLoginFailures() {
 }
 
 export function lockoutMessage(until: number): string {
-  const minutes = Math.max(1, Math.ceil((until - Date.now()) / 60000));
+  const ms = until - Date.now();
+  if (ms <= 0) return '';
+  const minutes = Math.ceil(ms / 60000);
+  if (minutes <= 1) {
+    const seconds = Math.max(1, Math.ceil(ms / 1000));
+    return `Too many attempts. Try again in ${seconds} second${seconds === 1 ? '' : 's'}.`;
+  }
   return `Too many attempts. Try again in ${minutes} minute${minutes === 1 ? '' : 's'}.`;
 }
 

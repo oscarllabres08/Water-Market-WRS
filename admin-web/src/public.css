@@ -1705,7 +1705,8 @@
 }
 
 .wm-ice-book input,
-.wm-ice-book select {
+.wm-ice-book select,
+.wm-ice-book textarea {
   width: 100%;
   margin-top: 4px;
   padding: 11px 12px;
@@ -1714,6 +1715,14 @@
   background: #f8fbff;
   color: #16325c;
   font: inherit;
+  box-sizing: border-box;
+}
+
+.wm-ice-book textarea {
+  display: block;
+  min-height: 76px;
+  line-height: 1.45;
+  resize: vertical;
 }
 
 .wm-public input::placeholder,

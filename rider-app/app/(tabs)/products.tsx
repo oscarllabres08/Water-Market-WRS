@@ -195,7 +195,7 @@ export default function ProductsScreen() {
               <View style={{ flex: 1 }}>
                 <Image
                   source={require('../../assets/logo.png')}
-                  style={{ width: 168, height: 96 }}
+                  style={{ width: 120, height: 120 }}
                   resizeMode="contain"
                   accessibilityLabel="WaterMarket"
                 />

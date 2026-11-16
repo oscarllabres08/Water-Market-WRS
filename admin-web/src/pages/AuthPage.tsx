@@ -117,10 +117,19 @@ export function AuthPage({ portal = 'wrs' }: { portal?: Portal }) {
   }, []);
 
   useEffect(() => {
-    if (!locked) return;
-    const timer = window.setTimeout(() => setLockedUntil(0), lockedUntil - Date.now());
-    return () => window.clearTimeout(timer);
-  }, [locked, lockedUntil]);
+    const syncLock = () => {
+      const until = loginLockedUntil();
+      setLockedUntil(until);
+      setError((prev) => {
+        if (until) return lockoutMessage(until);
+        if (prev?.startsWith('Too many attempts')) return null;
+        return prev;
+      });
+    };
+    syncLock();
+    const timer = window.setInterval(syncLock, 1000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const allowed = portal === 'owner' ? access.owner : portal === 'laundry' ? access.laundry : access.wrs;
   const masterOnly = Boolean(user && !loading && !profileLoading && !access.loading && !allowed && portal !== 'wrs');
@@ -328,7 +337,6 @@ export function AuthPage({ portal = 'wrs' }: { portal?: Portal }) {
                 required
                 maxLength={254}
                 spellCheck={false}
-                disabled={locked}
               />
             </div>
             <div className="field">
@@ -348,7 +356,6 @@ export function AuthPage({ portal = 'wrs' }: { portal?: Portal }) {
                 required
                 minLength={activeMode === 'signup' ? 8 : 6}
                 maxLength={128}
-                disabled={locked}
               />
             </div>
             {activeMode === 'signup' ? (
@@ -363,7 +370,6 @@ export function AuthPage({ portal = 'wrs' }: { portal?: Portal }) {
                   required
                   minLength={8}
                   maxLength={128}
-                  disabled={locked}
                 />
               </div>
             ) : null}

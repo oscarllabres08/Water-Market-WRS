@@ -19,7 +19,7 @@ git push
 **File names (required):**
 
 - `customer-app.apk` — public on `/water-refilling`
-- `rider-app.apk` — after PIN on `/water-refilling`
+- `rider-app.apk` — not a public link. `/downloads/rider-app.apk` and `/download/rider-app.apk` redirect to the water page unless the visitor just entered the download PIN. Apply migration `0018_rider_download_ticket.sql` before relying on this.
 
 Each file should be **tens of MB** (not KB). If download is ~3 KB or Android says *problem parsing the package*, the host served HTML instead of the APK — redeploy after APKs are in this folder.
 

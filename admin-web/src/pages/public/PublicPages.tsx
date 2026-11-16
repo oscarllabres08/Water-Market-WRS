@@ -840,7 +840,7 @@ function SocialGlyph({ name }: { name: 'facebook' | 'messenger' | 'tiktok' | 'yo
 export function WaterRefillingPage() {
   const [pinOpen, setPinOpen] = useState(false);
   const [pin, setPin] = useState('');
-  const [unlocked, setUnlocked] = useState(false);
+  const [downloadTicket, setDownloadTicket] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -855,7 +855,12 @@ export function WaterRefillingPage() {
       return;
     }
     if (data === true) {
-      setUnlocked(true);
+      const ticket = await supabase.rpc('claim_rider_download_ticket', { p_pin: pin });
+      if (ticket.error || typeof ticket.data !== 'string' || !ticket.data) {
+        setError(ticket.error ? (friendly(ticket.error.message) ?? 'PIN download lock is not ready yet. Run the latest database update.') : 'That PIN is not correct.');
+        return;
+      }
+      setDownloadTicket(ticket.data);
       setPinOpen(false);
     } else setError('That PIN is not correct.');
   }
@@ -947,13 +952,11 @@ export function WaterRefillingPage() {
                   <Icon name="check" /> Authorized team only
                 </li>
               </ul>
-              {unlocked ? (
+              {downloadTicket ? (
                 <a
                   className="wm-btn wm-btn-navy wm-download-btn"
-                  href={riderApkDownloadUrl()}
+                  href={riderApkDownloadUrl(downloadTicket)}
                   download="watermarket-rider.apk"
-                  target="_blank"
-                  rel="noopener noreferrer"
                 >
                   Download APK <span aria-hidden>↓</span>
                 </a>
@@ -1099,6 +1102,7 @@ export function IceCubesPage() {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
+  const [landmark, setLandmark] = useState('');
   const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
   const [locating, setLocating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1176,7 +1180,7 @@ export function IceCubesPage() {
       p_customer_name: name,
       p_contact_number: phone,
       p_delivery_address: address,
-      p_landmark: '',
+      p_landmark: landmark.trim(),
       p_notes: '',
       p_items: chosen,
     };
@@ -1203,6 +1207,7 @@ export function IceCubesPage() {
   function orderAgain() {
     setOrderId(null);
     setQty({});
+    setLandmark('');
     setError(null);
   }
 
@@ -1310,6 +1315,16 @@ export function IceCubesPage() {
                   required
                 />
               </label>
+              <label>
+                Instruction / landmark (optional)
+                <textarea
+                  value={landmark}
+                  onChange={(event) => setLandmark(event.target.value)}
+                  placeholder="Gate, landmark, or how to find the house"
+                  rows={2}
+                  maxLength={240}
+                />
+              </label>
               <button className="wm-loc" type="button" onClick={useCurrentLocation} disabled={locating}>
                 {locating ? 'Finding your location…' : coords ? 'Update current location' : 'Use current location'}
               </button>
@@ -1374,6 +1389,7 @@ export function LaundryPublicPage() {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
+  const [landmark, setLandmark] = useState('');
   const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
   const [locating, setLocating] = useState(false);
   const [date, setDate] = useState('');
@@ -1435,7 +1451,7 @@ export function LaundryPublicPage() {
       p_contact_number: phone,
       p_address: address,
       p_scheduled_for: scheduled.toISOString(),
-      p_notes: '',
+      p_notes: landmark.trim(),
       p_items: [{ service_id: serviceId, quantity: qty }],
     };
     let result = await supabase.rpc('create_public_laundry_booking', {
@@ -1446,7 +1462,7 @@ export function LaundryPublicPage() {
     if (result.error && coords && /could not find the function|schema cache|PGRST202/i.test(result.error.message)) {
       result = await supabase.rpc('create_public_laundry_booking', {
         ...booking,
-        p_notes: `pin:${coords.latitude},${coords.longitude}`,
+        p_notes: [landmark.trim(), `pin:${coords.latitude},${coords.longitude}`].filter(Boolean).join('\n'),
       });
     }
     const { data, error: err } = result;
@@ -1539,6 +1555,16 @@ export function LaundryPublicPage() {
                   onChange={(event) => setAddress(event.target.value)}
                   placeholder="House no., street, barangay"
                   required
+                />
+              </label>
+              <label>
+                Instruction / landmark (optional)
+                <textarea
+                  value={landmark}
+                  onChange={(event) => setLandmark(event.target.value)}
+                  placeholder="Gate, landmark, or how to find the house"
+                  rows={2}
+                  maxLength={240}
                 />
               </label>
               <button className="wm-loc" type="button" onClick={useCurrentLocation} disabled={locating}>

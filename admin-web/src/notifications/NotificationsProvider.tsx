@@ -41,7 +41,8 @@ type NotificationsContextValue = {
 const NotificationsContext = createContext<NotificationsContextValue | undefined>(undefined);
 
 export function NotificationsProvider({ children }: { children: ReactNode }) {
-  const { user, isStoreOwner } = useAuth();
+  const { user, isStoreOwner, isApprovedStaff } = useAuth();
+  const notificationsActive = Boolean(user?.id && (isStoreOwner || isApprovedStaff));
   const [unreadCount, setUnreadCount] = useState(0);
   const [toast, setToast] = useState<Toast | null>(null);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
@@ -54,7 +55,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   const channelInstanceRef = useRef(Math.random().toString(36).slice(2));
 
   const refresh = useCallback(async () => {
-    if (!user?.id || !isStoreOwner) {
+    if (!notificationsActive) {
       setUnreadCount(0);
       return;
     }
@@ -74,20 +75,20 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       .is('read_at', null)
       .limit(5000);
     setUnreadCount((data ?? []).length);
-  }, [user?.id, isStoreOwner]);
+  }, [notificationsActive, user?.id]);
 
   useEffect(() => {
     void refresh();
   }, [refresh]);
 
   useEffect(() => {
-    if (!user?.id || !isStoreOwner) return;
+    if (!notificationsActive) return;
     const t = setInterval(() => void refresh(), 45_000);
     return () => clearInterval(t);
-  }, [user?.id, isStoreOwner, refresh]);
+  }, [notificationsActive, refresh]);
 
   const loadPrefs = useCallback(async () => {
-    if (!user?.id || !isStoreOwner) {
+    if (!notificationsActive) {
       setPrefsLoading(false);
       return;
     }
@@ -106,7 +107,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     setNotificationsEnabled(next.notificationsEnabled);
     setSoundEnabled(next.soundEnabled);
     setPrefsLoading(false);
-  }, [user?.id, isStoreOwner]);
+  }, [notificationsActive, user?.id]);
 
   useEffect(() => {
     void loadPrefs();
@@ -114,7 +115,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
 
   const updateNotificationPrefs = useCallback(
     async (next: NotificationPrefsUpdate) => {
-      if (!user?.id || !isStoreOwner) return;
+      if (!notificationsActive || !user?.id) return;
       setPrefsSaving(true);
 
       const merged = {
@@ -140,11 +141,11 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
 
       setPrefsSaving(false);
     },
-    [user?.id, isStoreOwner]
+    [notificationsActive, user?.id]
   );
 
   useEffect(() => {
-    if (!user?.id || !isStoreOwner) return;
+    if (!notificationsActive || !user?.id) return;
     const channel = supabase
       .channel(`admin-notif-${user.id}-${channelInstanceRef.current}`)
       .on(
@@ -196,7 +197,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
       supabase.removeChannel(channel);
     };
-  }, [user?.id, isStoreOwner, refresh]);
+  }, [notificationsActive, refresh, user?.id]);
 
   const dismissToast = useCallback(() => {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
